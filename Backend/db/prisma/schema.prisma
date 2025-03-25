@@ -1,8 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// This is your Prisma schema file
 
 generator client {
   provider = "prisma-client-js"
@@ -11,4 +7,97 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// Enum to represent user type (Driver or Owner)
+enum UserType {
+  DRIVER
+  OWNER
+}
+
+model User {
+  Id                    Int       @default(autoincrement()) @id
+  Name                  String
+  Password              String?
+  MobileNumber          String @unique
+  DOB                   DateTime
+  Email                 String? @unique
+  AdhaarCardNumber      String? @unique
+  FrontSideAdhaarImage  String?
+  BackSideAdhaarImage   String?
+  PanNumber             String? @unique
+  PanImage              String?
+  LastLoggedIn          DateTime
+  CreatedDate           DateTime @default(now())
+  userType              UserType // New field to distinguish Driver or Owner
+  
+  // Relationships
+  DriverVehicle         DriverVehicle[]
+  OwnerVehicles         OwnerVehicle[] // Relationship with OwnerVehicle
+  Owner                 OwnerDriver[] @relation("OwnerRelation")
+  Driver                OwnerDriver[] @relation("DriverRelation")
+  Wallet                Wallet?         // Optional relationship with Wallet
+}
+
+model Vehicle {
+  Id                     Int        @default(autoincrement()) @id
+  Model                  String
+  Year                   DateTime
+  Category               String
+  VehicleImage           String
+  VehicleInsuranceImage  String
+  PermitImage            String
+  
+  // Relationships
+  DriverVehicles        DriverVehicle[]    // Relationship with DriverVehicle
+  OwnerVehicles         OwnerVehicle[]     // Relationship with OwnerVehicle
+}
+
+model OwnerDriver {
+  Id        Int  @default(autoincrement()) @id
+  OwnerId   Int
+  DriverId  Int
+  
+  // Relationships
+  Owner     User @relation("OwnerRelation", fields: [OwnerId], references: [Id])  // Relationship with Owner (User)
+  Driver    User @relation("DriverRelation", fields: [DriverId], references: [Id]) // Relationship with Driver (User)
+}
+
+model DriverVehicle {
+  Id        Int     @default(autoincrement()) @id
+  DriverId  Int
+  VehicleId Int
+  
+  // Relationships
+  Driver    User    @relation(fields: [DriverId], references: [Id]) // Relationship with Driver (User)
+  Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id]) // Relationship with Vehicle
+}
+
+model OwnerVehicle {
+  Id        Int     @default(autoincrement()) @id
+  OwnerId   Int
+  VehicleId Int
+  
+  // Relationships
+  Owner     User    @relation(fields: [OwnerId], references: [Id]) // Relationship with Owner (User)
+  Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id]) // Relationship with Vehicle
+}
+
+model Otp {
+  Id           Int       @id @default(autoincrement())
+  MobileNumber String @unique   // Changed to string as phone numbers can have leading zeros and need to store as strings
+  Otp          String
+  ExpiresAt    DateTime  @default(now()) // Set to the current time when OTP is created, you should set this programmatically
+  CreatedAt    DateTime  @default(now())
+  
+  @@index([MobileNumber]) // Index for fast querying by mobileNumber
+  @@map("otps") // Optionally, map the model name to an explicit table name in the database
+}
+
+model Wallet {
+  Id          Int @default(autoincrement()) @id
+  UserID      Int @unique
+  Amount      Int
+  User        User  @relation(fields: [UserID], references: [Id])
+  LastUpdated DateTime @default(now())
 }
