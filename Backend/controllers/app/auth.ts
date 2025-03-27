@@ -1,10 +1,17 @@
 // src/controllers/app/auth/signupController.ts
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+import express from "express";
 import { date, unknown, z } from 'zod';
 import { marked } from 'marked';
 import { PrismaClient } from '@prisma/client';
 import generateOTP from "../../utils/generateOtp";
 import axios from 'axios';
+import jwt from "jsonwebtoken";
+import {S3} from "aws-sdk"
+const app =express();
+
+app.use(express.json());
+
 const prisma = new PrismaClient();
 // Zod validation schemas for name and phone number
 const nameSchema = z.string().min(1, "Name is required").regex(/^[A-Za-z\s]+$/, "Name can only contain letters and spaces");
@@ -16,6 +23,9 @@ const phoneSchema = z.string()
 const signupSchema = z.object({
   name: nameSchema,
   phoneNumber: phoneSchema,
+  Dob:z.string(),
+  aadharCardNo:z.number().min(12),
+  userType: z.enum(["DRIVER","OWNER"])
 });
 
 const otpSchema = z.object({
@@ -27,7 +37,16 @@ const verifyOtpSchema = z.object({
   Otp: z.string()
 })
 
-const sendOtp = async (req: Request, res: Response) => {
+const vehicleSchema = z.object({
+  Model: z.string(),
+  Year: z.date(),
+  Category: z.string(),
+  VehicleImage: z.string(),
+  VehicleInsuranceImage: z.string(),
+  PermitImage: z.string(),
+});
+
+export const sendOtp = async (req: Request, res: Response): Promise<any> => {
   // Validate the request body using your schema
   const parsedBody = otpSchema.safeParse(req.body);
   
@@ -121,108 +140,123 @@ const sendOtp = async (req: Request, res: Response) => {
   }
 };
 
-export { sendOtp };
 
 
-const verifyOTP = async (req:Request, res:Response) => {
+export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
   const { otp, mobile_number } = req.body;
 
-  const parsedBody = verifyOtpSchema.safeParse(req.body);
-  if (!parsedBody.success){
-    return res.status(411).json({
-      message : "Invalid Body"
-    })
-  }
-
-
-  const savedOtp = await  prisma.otp.findFirst({
-    where:{
-      MobileNumber: parsedBody.data.MobileNumber
+  try
+  {
+    const parsedBody = verifyOtpSchema.safeParse(req.body);
+    if (!parsedBody.success){
+  
+      return res.status(411).json({
+        message : "Invalid Body"
+      })
     }
-  })
-
-  if(!savedOtp){
-    return res.status(411).json({
-      message : "Incorrect body"
-    })
-  }
-
-  if(savedOtp?.Otp === parsedBody.data.Otp){
-   const user = await prisma.user.findFirst({
+  
+  
+    const savedOtp = await  prisma.otp.findFirst({
       where:{
         MobileNumber: parsedBody.data.MobileNumber
       }
     })
-
-    if(!user){
-       
-      return res.status(400).json({
-        message : "user not founnd"
+  
+    if(!savedOtp){
+      return res.status(411).json({
+        message : "Incorrect body"
+      })
+    }
+  
+    if(savedOtp?.Otp === parsedBody.data.Otp){
+     const user = await prisma.otp.findFirst({
+        where:{
+          MobileNumber: parsedBody.data.MobileNumber
+        }
+      })
+  
+      if(!user){
+         
+        return res.status(400).json({
+          message : "user not founnd"
+        })
+  
+      }
+  
+      await prisma.user.update({
+        where:{
+          MobileNumber: parsedBody.data.MobileNumber
+        },
+        data:{
+          LastLoggedIn: new Date()
+        }
+      })
+  
+      await prisma.otp.delete({
+        where:{
+          MobileNumber:parsedBody.data.MobileNumber
+        }
       })
 
+      const accesstoken = jwt.sign({
+        user
+      },process.env.JWT_SECRET as unknown as string)
+
+      return res.status(200).json({
+        message:"Successfully loggedIn",
+        accessToken: accesstoken
+      })
     }
 
-    await prisma.user.update({
-      where:{
-        MobileNumber: parsedBody.data.MobileNumber
-      },
-      data:{
-        LastLoggedIn: new Date()
-      }
-    })
+    else{
 
-    await prisma.otp.delete({
-      where:{
-        MobileNumber:parsedBody.data.MobileNumber
-      }
-    })
+      return res.status(411).json({
+        message : "Entered Wrong OTP"
+      })
+    }
+
+   
+   
   }
-  Otp.findOne({ otp: otp, mobile_number: mobile_number })
-    .then((otpDoc) => {
-      if (!otpDoc) {
-        return res.json(responseObj(false, null, "Invalid OTP"));
-      }
-
-      User.findOne({ mobile_number: otpDoc.mobile_number })
-        .then(async (user) => {
-          if (!user) {
-            return res.json(responseObj(false, otpDoc.mobile_number, "User not found"));
-          }
-          await User.updateOne({
-            $set: {
-              lastLoginDate: moment().format("YYYY-MM-DDTHH:mm:ss"),
-            },
-          });
-          // Generate a new access token with user details
-          
-          await Otp.deleteOne({
-            otp: otp,
-          });
-          // Return the new access token in the response
-          return res.json(
-            responseObj(true, { accessToken: newAccessToken, user: user }, "Successful Login")
-          );
-        })
-        .catch((error) => {
-          console.error("Error finding OTP:", error);
-          return res.json(responseObj(false, null, "Internal server error"));
-        });
+  catch(Exception:any){
+    return res.status(500).json({
+      message : "Something went wrong"
     })
-    .catch((error) => {
-      console.error("Error finding user:", error);
-      return res.status(500).json({ message: "Internal server error" });
-    });
+
+  }
+    
 };
 // Declaring the handleSignup function as a const
-export const signup = async (req: Request, res: Response): Promise<any> => {
+export const register = async (req: Request, res: Response): Promise<any> => {
   const { name, phoneNumber } = req.body;
 
   try {
     // Validate the incoming data with Zod
-    signupSchema.parse({ name, phoneNumber });
+    const parsedBody = signupSchema.safeParse(req.body);
+    if(!parsedBody.success){
+      return res.status(411).json({
+        message: "Incorrect Input"
+      });
+    }
+    //@ts-ignore
+   if(req.user.mobileNumber!= parsedBody.data.phoneNumber){
+    return res.status(411).json({
+      message:"Use the same mobile number which was used to receive Opt"
+    })
+   }
+   const user =await prisma.user.create({
+      data:{
+        Name: parsedBody.data.name,
+        MobileNumber: parsedBody.data.phoneNumber,
+        DOB:parsedBody.data.Dob,
+        AdhaarCardNumber : parsedBody.data.aadharCardNo as unknown as string,
+        userType: parsedBody.data.userType,
+        LastLoggedIn: Date.now() as unknown as string
+      }
+    })
 
     // If validation passes, respond with a success message
-    res.status(200).json({ message: "Signup successful!" });
+    res.status(200).json({ user: user, message: "Signup successful!" });
   } catch (error) {
     if (error instanceof z.ZodError) {
       // If validation fails, return the error details
@@ -235,3 +269,5 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+

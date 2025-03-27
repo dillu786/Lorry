@@ -27,7 +27,7 @@ model User {
   BackSideAdhaarImage   String?
   PanNumber             String? @unique
   PanImage              String?
-  LastLoggedIn          DateTime
+  LastLoggedIn          DateTime @default(now())
   CreatedDate           DateTime @default(now())
   userType              UserType // New field to distinguish Driver or Owner
   
