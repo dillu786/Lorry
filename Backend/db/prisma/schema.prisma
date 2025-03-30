@@ -1,5 +1,3 @@
-// This is your Prisma schema file
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,91 +11,138 @@ datasource db {
 enum UserType {
   DRIVER
   OWNER
+  USER
 }
 
-model User {
+enum Gender{
+  MALE
+  FEMALE
+}
+
+model User{
+  Id                 Int   @default(autoincrement()) @id
+  MobileNumber       String
+  LastLoggedIn       DateTime  @default(now())
+  CreatedDate        DateTime  @default(now())
+  UserWallet         UserWallet?
+}
+model Owner {
   Id                    Int       @default(autoincrement()) @id
   Name                  String
-  Password              String?
-  MobileNumber          String @unique
-  DOB                   DateTime
-  Email                 String? @unique
-  AdhaarCardNumber      String? @unique
+  Password              String
+  MobileNumber          String    @unique
+  DOB                   DateTime?
+  Email                 String?   @unique
+  Gender                Gender
+  AdhaarCardNumber      String?   @unique
   FrontSideAdhaarImage  String?
   BackSideAdhaarImage   String?
-  PanNumber             String? @unique
+  PanNumber             String?   @unique
   PanImage              String?
-  LastLoggedIn          DateTime @default(now())
-  CreatedDate           DateTime @default(now())
-  userType              UserType // New field to distinguish Driver or Owner
-  
+  LastLoggedIn          DateTime  @default(now())
+  CreatedDate           DateTime  @default(now())
   // Relationships
-  DriverVehicle         DriverVehicle[]
-  OwnerVehicles         OwnerVehicle[] // Relationship with OwnerVehicle
-  Owner                 OwnerDriver[] @relation("OwnerRelation")
-  Driver                OwnerDriver[] @relation("DriverRelation")
-  Wallet                Wallet?         // Optional relationship with Wallet
+  OwnerVehicles         OwnerVehicle[]
+  OwnerWallet           OwnerWallet?   // Optional Wallet
+  OwnerDriver           OwnerDriver[]
+}
+
+model Driver {
+  Id                     Int       @default(autoincrement()) @id
+  Name                   String?
+  Gender                 Gender
+  Password               String?
+  MobileNumber           String    @unique
+  DOB                    DateTime?
+  DrivingLicenceNumber   String
+  DrivingLicenceFrontImage String
+  DrivingLicenceBackImage  String
+  DriverImage            String
+  Email                  String?   @unique
+  AdhaarCardNumber       String    @unique
+  FrontSideAdhaarImage   String
+  BackSideAdhaarImage    String
+  PanNumber              String    @unique
+  PanImage               String
+  LastLoggedIn           DateTime  @default(now())
+  CreatedDate            DateTime  @default(now())
+  // Relationships
+  DriverVehicles         DriverVehicle[]
+  DriverOwner            OwnerDriver[]
+  DriverWallet           DriverWallet?  // Optional Wallet
 }
 
 model Vehicle {
-  Id                     Int        @default(autoincrement()) @id
-  Model                  String
-  Year                   DateTime
-  Category               String
-  VehicleImage           String
-  VehicleInsuranceImage  String
-  PermitImage            String
-  
+  Id                    Int        @default(autoincrement()) @id
+  Model                 String
+  Year                  String
+  VehicleNumber         String
+  Category              String
+  VehicleImage          String?
+  VehicleInsuranceImage String?
+  PermitImage           String?
+
   // Relationships
-  DriverVehicles        DriverVehicle[]    // Relationship with DriverVehicle
-  OwnerVehicles         OwnerVehicle[]     // Relationship with OwnerVehicle
+  DriverVehicles        DriverVehicle[]
+  OwnerVehicles         OwnerVehicle[]
 }
 
 model OwnerDriver {
-  Id        Int  @default(autoincrement()) @id
+  Id        Int    @default(autoincrement()) @id
   OwnerId   Int
   DriverId  Int
-  
-  // Relationships
-  Owner     User @relation("OwnerRelation", fields: [OwnerId], references: [Id])  // Relationship with Owner (User)
-  Driver    User @relation("DriverRelation", fields: [DriverId], references: [Id]) // Relationship with Driver (User)
+  Owner     Owner @relation(fields: [OwnerId],references: [Id])
+  Driver    Driver @relation(fields: [DriverId],references: [Id])
 }
 
 model DriverVehicle {
   Id        Int     @default(autoincrement()) @id
   DriverId  Int
   VehicleId Int
-  
-  // Relationships
-  Driver    User    @relation(fields: [DriverId], references: [Id]) // Relationship with Driver (User)
-  Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id]) // Relationship with Vehicle
+
+  Driver    Driver  @relation(fields: [DriverId], references: [Id])
+  Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id])
 }
 
 model OwnerVehicle {
   Id        Int     @default(autoincrement()) @id
   OwnerId   Int
   VehicleId Int
-  
-  // Relationships
-  Owner     User    @relation(fields: [OwnerId], references: [Id]) // Relationship with Owner (User)
-  Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id]) // Relationship with Vehicle
+
+  Owner     Owner   @relation(fields: [OwnerId], references: [Id])
+  Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id])
 }
 
 model Otp {
   Id           Int       @id @default(autoincrement())
-  MobileNumber String @unique   // Changed to string as phone numbers can have leading zeros and need to store as strings
+  MobileNumber String    @unique
   Otp          String
-  ExpiresAt    DateTime  @default(now()) // Set to the current time when OTP is created, you should set this programmatically
+  ExpiresAt    DateTime  @default(now())
   CreatedAt    DateTime  @default(now())
-  
-  @@index([MobileNumber]) // Index for fast querying by mobileNumber
-  @@map("otps") // Optionally, map the model name to an explicit table name in the database
+
+  @@index([MobileNumber])
+  @@map("otps")
 }
 
-model Wallet {
-  Id          Int @default(autoincrement()) @id
-  UserID      Int @unique
+model OwnerWallet {
+  Id          Int       @default(autoincrement()) @id
+  OwnerId     Int       @unique
   Amount      Int
-  User        User  @relation(fields: [UserID], references: [Id])
-  LastUpdated DateTime @default(now())
+  Owner       Owner     @relation(fields: [OwnerId], references: [Id])
+  LastUpdated DateTime  @default(now())
+}
+
+model DriverWallet {
+  Id          Int       @default(autoincrement()) @id
+  DriverId    Int       @unique
+  Amount      Int
+  Driver      Driver    @relation(fields: [DriverId], references: [Id])
+  LastUpdated DateTime  @default(now())
+}
+
+model UserWallet {
+  Id          Int   @default(autoincrement()) @id
+  UserId      Int @unique
+  Amount      Int
+  User        User  @relation(fields: [UserId],references: [Id])
 }

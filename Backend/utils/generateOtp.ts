@@ -7,4 +7,4 @@ export default function generateOTP() {
     }
     return otp;
   }
-  
+
