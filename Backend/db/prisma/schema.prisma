@@ -22,9 +22,12 @@ enum Gender{
 model User{
   Id                 Int   @default(autoincrement()) @id
   MobileNumber       String
+  Name               String
   LastLoggedIn       DateTime  @default(now())
   CreatedDate        DateTime  @default(now())
+  Gender             Gender
   UserWallet         UserWallet?
+  Bookings           Bookings[]
 }
 model Owner {
   Id                    Int       @default(autoincrement()) @id
@@ -70,6 +73,7 @@ model Driver {
   DriverVehicles         DriverVehicle[]
   DriverOwner            OwnerDriver[]
   DriverWallet           DriverWallet?  // Optional Wallet
+  Bookings               Bookings[]
 }
 
 model Vehicle {
@@ -85,6 +89,7 @@ model Vehicle {
   // Relationships
   DriverVehicles        DriverVehicle[]
   OwnerVehicles         OwnerVehicle[]
+  Bookings              Bookings[]
 }
 
 model OwnerDriver {
@@ -145,4 +150,39 @@ model UserWallet {
   UserId      Int @unique
   Amount      Int
   User        User  @relation(fields: [UserId],references: [Id])
+}
+
+enum PaymentMode{
+  CASH
+  ONLINE
+}
+
+enum BookingStatus{
+  Pending
+  Confirmed
+  Cancelled
+  Ongoing
+  Completed
+}
+
+model Bookings {
+  Id                          Int @default(autoincrement()) @id
+  UserId                      Int
+  PickUpLocation              String 
+  DropLocation                String
+  Product                     String
+  Distance                    String
+  DriverId                    Int?
+  VehicleId                   Int?
+  Fare                        String
+  Status                      BookingStatus
+  PaymentMode                 PaymentMode
+  BookingTime                 DateTime @default(now())
+  StartTime                   DateTime
+  EndTime                     DateTime
+  User                        User @relation(fields: [UserId],references: [Id])
+  CreatedDateTime             DateTime @default(now())
+  UpdatedDateTime             DateTime @default(now())
+  Driver                      Driver? @relation(fields: [DriverId],references: [Id])
+  Vehicle                     Vehicle? @relation(fields: [VehicleId],references: [Id]) 
 }
