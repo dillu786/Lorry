@@ -186,3 +186,4 @@ model Bookings {
   Driver                      Driver? @relation(fields: [DriverId],references: [Id])
   Vehicle                     Vehicle? @relation(fields: [VehicleId],references: [Id]) 
 }
+

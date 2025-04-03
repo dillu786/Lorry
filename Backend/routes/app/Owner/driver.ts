@@ -1,9 +1,9 @@
 import express from "express"
-import { middleware } from "../../../middlewares/middleware";
+import { OwnerMiddleware } from "../../../middlewares/middleware";
 import { getAllDriverByOwnerId } from "../../../controllers/app/Owner/driver";
 
 
 const router = express.Router();
 
-router.get("/ownerDrivers",middleware,getAllDriverByOwnerId);
+router.get("/ownerDrivers",OwnerMiddleware,getAllDriverByOwnerId);
 export default router;
