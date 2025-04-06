@@ -69,6 +69,7 @@ model Driver {
   PanImage               String
   LastLoggedIn           DateTime  @default(now())
   CreatedDate            DateTime  @default(now())
+  IsOnline               Boolean   @default(false)
   // Relationships
   DriverVehicles         DriverVehicle[]
   DriverOwner            OwnerDriver[]

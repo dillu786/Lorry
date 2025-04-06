@@ -4,16 +4,34 @@ import { Prisma, PrismaClient } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 const prisma = new PrismaClient();
 
-export const getBookingHistoryByuserId = async (req:Request, res:Response): Promise<any>=>{
+
+export const bookRide = async (req:Request, res:Response): Promise<any>=>{
+    try{
+
+    }
+    catch(error:any){
+        res.status(500).json(responseObj(false,null,"Something went wrong"));
+    }
+}           
+export const getUserBookingHistory = async (req:Request, res:Response): Promise<any>=>{
 
     try{
-        const userId = req.params.userId;
-        if (userId ===null || userId === undefined || userId === "")
-            return res.status(411).json(responseObj(false,null,"Incorrect Input"));
+        //@ts-ignore
+        const mobileNumber = req.user.MobileNumber;
+        const user = await prisma.user.findFirst({ 
+            where:{
+                MobileNumber: mobileNumber
+            }
+        })
 
+        if(!user){
+            return res.status(400).json(responseObj(false,null,"User not found"));
+        }
+        
+        
         const bookings = await prisma.bookings.findMany({
             where:{
-                UserId: Number(userId),
+                UserId: Number(user.Id),
                 Status: "Completed"
             },
            

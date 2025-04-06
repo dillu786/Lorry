@@ -13,14 +13,16 @@ try{
         }
     });
      
-    res.status(200).json(responseObj);
+    res.status(200).json(responseObj(true,newBookings,"Succefully Fetched"));
 
 }
 catch(error:any){
 
-    res.status(500).json(responseObj);
+    res.status(500).json(responseObj(false,null,"Something went wrong"));
 }
 }
+
+
 
 export const acceptedBookings = async (req: Request,res: Response): Promise<any> =>{
     try{
@@ -77,11 +79,10 @@ export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
 
     try{
 
-        const driverId = req.query.driverId as string;
+        //@ts-ignore
+        const driverId = req.user.Id as string;
     
-        if(driverId == ""|| driverId == null || driverId == undefined){
-            res.status(411).json(responseObj(false,null,"Incorrect Input"));
-        }
+       
         const onGoingRide = await prisma.bookings.findFirst({
             where:{
                 DriverId : parseInt(driverId),
@@ -159,6 +160,44 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
     }
 
     catch(error: any){
+        res.status(500).json(responseObj(false,null,"Something went wrong"));
+    }
+}
+
+export const makeDriverOnline = async (req:Request, res:Response): Promise<any> =>{
+    try{
+        //@ts-ignore
+        const driverId = req.user.Id as string;
+        await prisma.driver.update({
+            where:{
+                Id: parseInt(driverId)
+            },
+            data:{
+                IsOnline: true
+            }
+        })
+        res.status(200).json(responseObj(true,null,""));
+        }
+    catch(error:any){
+        res.status(500).json(responseObj(false,null,"Something went wrong"));
+    }
+}
+
+export const makeDriverOffline = async (req:Request, res:Response): Promise<any> =>{
+    try{
+        //@ts-ignore
+        const driverId = req.user.Id as string;
+        await prisma.driver.update({
+            where:{
+                Id: parseInt(driverId)
+            },
+            data:{
+                IsOnline: false     
+            }
+        })
+        res.status(200).json(responseObj(true,null,""));
+    }
+    catch(error:any){
         res.status(500).json(responseObj(false,null,"Something went wrong"));
     }
 }

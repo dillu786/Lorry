@@ -1,6 +1,9 @@
 import express from "express"
-import { resetPassword } from "../../../controllers/app/Owner/auth";
+import { resetPassword,signIn } from "../../../controllers/app/Driver/auth";
 
 const router = express.Router();
 
-router.post("/resetPassword",resetPassword)
+router.post("/resetPassword",resetPassword);
+router.post("/signIn",signIn);
+
+export default router;

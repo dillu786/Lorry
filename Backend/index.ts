@@ -1,8 +1,8 @@
 // src/app.ts
 import express from 'express';
-import authRoutes from './routes/app/Owner/auth';
-import vehiRoutes from "./routes/app/Owner/vehicleRoutes"
-import driverRoutes from "./routes/app/Owner/driver"
+import OwnerRoutes from './routes/app/Owner/index';
+import DriverRoutes from "./routes/app/Driver/index"
+import CustomerRoutes from "./routes/app/Cutomer/index"
 import type { Request,Response } from 'express';
 const app = express();
 const port = 3000;
@@ -15,9 +15,10 @@ app.get("/api",(req:Request, res:Response)=>{
     }); 
 });
 // Mount the authentication routes
-app.use('/api/app', authRoutes);
-app.use("/api/app", vehiRoutes);
-app.use("/api/app",driverRoutes)
+app.use('/api/app/Owner', OwnerRoutes);
+app.use("/api/app/Driver", DriverRoutes);
+app.use("/api/app/Customer",CustomerRoutes)
+
 
 // Start the server
 app.listen(port, () => {

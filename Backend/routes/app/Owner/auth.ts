@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { resetPassword, sendOtp,verifyOTP } from "../../../controllers/app/Owner/auth";
-import { middleware as AuthVerify } from "../../../middlewares/middleware";
+import { OwnerMiddleware } from "../../../middlewares/middleware";
 import { uploadDocument } from "../../../controllers/app/Owner/auth";
 import { signUp,signIn } from "../../../controllers/app/Owner/auth";
 const storage = multer.memoryStorage()
@@ -17,8 +17,8 @@ router.post("/signup",signUp);
 router.post("/signin",signIn);
 router.post("/verifyOtp",verifyOTP);
 router.post("/sendOtp",sendOtp);
-router.post("/resetPassword",AuthVerify,resetPassword);
-router.post("/uploadDoc",AuthVerify,upload.fields([
+router.post("/resetPassword",OwnerMiddleware,resetPassword);
+router.post("/uploadDoc",OwnerMiddleware,upload.fields([
     { name: 'FrontAadhar',maxCount:1},
     { name: 'BackAadhar',maxCount:1},
     {name: 'Pan',maxCount:1}

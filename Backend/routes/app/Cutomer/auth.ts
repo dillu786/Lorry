@@ -1,11 +1,13 @@
 import express from "express"
 import { CustomerMiddleware } from "../../../middlewares/middleware";
-import { getUserBookingHistory } from "../../../controllers/app/Customer/booking";
-import { sendOtp, verifyOTP } from "../../../controllers/app/Owner/auth";
 import { createAccount } from "../../../controllers/app/Customer/auth";
+
+import { sendOtp, verifyOTP } from "../../../controllers/app/Owner/auth";
 
 const router = express.Router();
 
-router.post("/BookingHistory",CustomerMiddleware,getUserBookingHistory);
+router.post("/verifyOtp",verifyOTP);
+router.post("/sendOtp",sendOtp);
+router.post("/createAccount",createAccount);
 
 export default router;
