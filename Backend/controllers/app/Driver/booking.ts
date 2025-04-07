@@ -2,7 +2,7 @@ import type { Request,Response } from "express"
 import { PrismaClient } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptRideSchema } from "../../../types/Driver/types";
-
+import { negotiateFareSchema } from "../../../types/Driver/types";
 const prisma = new PrismaClient();
 export const newBookings = async (req:Request, res: Response):Promise<any> => {
 try{
@@ -195,6 +195,40 @@ export const makeDriverOffline = async (req:Request, res:Response): Promise<any>
                 IsOnline: false     
             }
         })
+        res.status(200).json(responseObj(true,null,""));
+    }
+    catch(error:any){
+        res.status(500).json(responseObj(false,null,"Something went wrong"));
+    }
+}
+
+export const negotiateFare = async (req:Request, res:Response): Promise<any> =>{
+    try{
+        const parsedBody = negotiateFareSchema.safeParse(req.body);
+        if(!parsedBody.success){
+            res.status(411).json(responseObj(false,"Incorrect Input",parsedBody.error as any))
+        }   
+
+        const booking = await prisma.bookings.findFirst({
+            where:{
+                Id: parsedBody.data?.BookingId
+            }
+        })  
+
+        if(!booking){
+            res.status(411).json(responseObj(false,null,"BookingId does not exist"));
+        }               
+
+        await prisma.fareNegotiation.create({
+            data:{
+                BookingId: parsedBody.data?.BookingId as number,
+                DriverId: parsedBody.data?.DriverId as number,
+                OwnerId: parsedBody.data?.OwnerId as number,
+                NegotiatedFare: parsedBody.data?.NegotiatedFare as string,
+                NegotiatedTime: Date.now() as any
+            }           
+        })
+
         res.status(200).json(responseObj(true,null,""));
     }
     catch(error:any){

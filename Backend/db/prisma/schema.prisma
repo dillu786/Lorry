@@ -46,8 +46,9 @@ model Owner {
   CreatedDate           DateTime  @default(now())
   // Relationships
   OwnerVehicles         OwnerVehicle[]
-  OwnerWallet           OwnerWallet?   // Optional Wallet
+  OwnerWallet           OwnerWallet?        // Optional Wallet
   OwnerDriver           OwnerDriver[]
+  FareNegotiations      FareNegotiation[]
 }
 
 model Driver {
@@ -75,6 +76,7 @@ model Driver {
   DriverOwner            OwnerDriver[]
   DriverWallet           DriverWallet?  // Optional Wallet
   Bookings               Bookings[]
+  FareNegotiations      FareNegotiation[]
 }
 
 model Vehicle {
@@ -186,5 +188,19 @@ model Bookings {
   UpdatedDateTime             DateTime @default(now())
   Driver                      Driver? @relation(fields: [DriverId],references: [Id])
   Vehicle                     Vehicle? @relation(fields: [VehicleId],references: [Id]) 
+  FareNegotiations            FareNegotiation[]
+}
+
+model FareNegotiation {
+  Id Int @default(autoincrement()) @id
+  BookingId Int
+  Booking Bookings @relation(fields: [BookingId],references: [Id])
+  DriverId Int
+  Driver Driver @relation(fields: [DriverId],references: [Id])
+  OwnerId Int
+  Owner Owner @relation(fields: [OwnerId],references: [Id])
+  NegotiatedFare String
+  NegotiatedTime DateTime @default(now())
+  @@unique([BookingId, DriverId])
 }
 
