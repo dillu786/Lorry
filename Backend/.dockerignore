@@ -4,7 +4,6 @@ Dockerfile
 .dockerignore
 .git
 .gitignore
-.env
 .env.local
 .env.*.local
 README.md
