@@ -1,7 +1,9 @@
 import type { NextFunction,Request,Response } from "express";
 import jwt from "jsonwebtoken"
-
-export const Drivermiddleware = async (req:Request,res:Response, next:NextFunction)=>{
+import express from "express";
+const app = express();
+app.use(express.json());
+export const Drivermiddleware = async (req:Request,res:Response, next:NextFunction):Promise<any>=>{
     try{
         
         let token = req.header("Authorization");
@@ -19,6 +21,11 @@ export const Drivermiddleware = async (req:Request,res:Response, next:NextFuncti
             });
             next()
         }
+        else{
+            return res.status(401).json({
+                message: "Token not found"
+            });
+        }
     }
 
     catch(error:any){
@@ -28,7 +35,7 @@ export const Drivermiddleware = async (req:Request,res:Response, next:NextFuncti
     }
 }
 
-export const CustomerMiddleware = async (req:Request,res:Response, next:NextFunction)=>{
+export const CustomerMiddleware = async (req:Request,res:Response, next:NextFunction):Promise<any>=>{
     try{
         
         let token = req.header("Authorization");
@@ -46,6 +53,11 @@ export const CustomerMiddleware = async (req:Request,res:Response, next:NextFunc
             });
             next()
         }
+        else{
+            return res.status(401).json({
+                message: "Token not found"
+            });
+        }
     }
 
     catch(error:any){
@@ -55,11 +67,12 @@ export const CustomerMiddleware = async (req:Request,res:Response, next:NextFunc
     }
 }
 
-export const OwnerMiddleware = async (req:Request,res:Response, next:NextFunction)=>{
+export const OwnerMiddleware = async (req:Request,res:Response, next:NextFunction):Promise<any>=>{
     try{
         
         let token = req.header("Authorization");
         console.log("token"+token);
+        console.log(req.body);
         if(token){
            
             jwt.verify(token,process.env.JWT_SECRET_OWNER as unknown as string,(err:any,res:any)=>{
@@ -72,6 +85,11 @@ export const OwnerMiddleware = async (req:Request,res:Response, next:NextFunctio
                 req.user=res
             });
             next()
+        }
+        else{
+            return res.status(401).json({
+                message: "Token not found"
+            });
         }
     }
 

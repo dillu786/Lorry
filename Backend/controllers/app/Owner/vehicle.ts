@@ -139,14 +139,14 @@ export const getAllVehiclesByOwnerId = async (req:Request, res:Response): Promis
 
   try{
 
-    const ownerId = req.query.ownerId as string;
+    const ownerId = req.user.Id as number;
     if(ownerId == null || ownerId == undefined){
       return res.status(411).json(responseObj(false,null,"Incorrect Input"));
     }
   
     const vehicles = await prisma.ownerVehicle.findMany({
       where:{
-        OwnerId: parseInt(ownerId)
+        OwnerId: ownerId
       },
       include:{
         Vehicle:{
@@ -176,6 +176,8 @@ export const getVehicleByVehicleId = async (req:Request, res: Response):Promise<
   try{
 
     const vehicleId = req.query.vehicleId as string;
+    console.log("req.query",req.query);
+    console.log("vehicleId",vehicleId);
     if (vehicleId == null || vehicleId == undefined || vehicleId == ""){
       return res.status(411).json(responseObj(false,null,"Incorrect Input"))
     }
@@ -196,7 +198,7 @@ export const getVehicleByVehicleId = async (req:Request, res: Response):Promise<
   
   if(vehicleDetails){
     vehicleDetails.PermitImage = await getObjectSignedUrl(vehicleDetails.PermitImage as string);
-    vehicleDetails.VehicleImage = await getObjectSignedUrl(vehicleDetails.PermitImage);
+    vehicleDetails.VehicleImage = await getObjectSignedUrl(vehicleDetails.VehicleImage as string);
     vehicleDetails.VehicleInsuranceImage = await getObjectSignedUrl(vehicleDetails.VehicleInsuranceImage as string);
   
   }
@@ -220,7 +222,7 @@ export const updateVehicleByVehicleId = async (req:Request, res: Response): Prom
   
     const vehicleDetails = await prisma.vehicle.findFirst({
       where:{
-        Id: parsedBody.data.Id
+        Id: parseInt(parsedBody.data.Id)
       }
     });
   
@@ -247,7 +249,7 @@ export const updateVehicleByVehicleId = async (req:Request, res: Response): Prom
   
     await prisma.vehicle.update({
       where:{
-        Id: parsedBody.data.Id
+        Id: parseInt(parsedBody.data.Id) 
       },
       data:{
          Model:parsedBody.data.Model,

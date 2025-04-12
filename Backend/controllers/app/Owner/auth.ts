@@ -60,7 +60,7 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
   
     const owner = await prisma.owner.findFirst({
       where:{
-        MobileNumber: parsedBody.data?.MobileNumber
+        MobileNumber: parsedBody.data?.mobileNumber
       }
     });
   
@@ -70,14 +70,15 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
       })
     }
   
+    console.log("owner",owner);
   
     const decoded = await bcrypt.compare(parsedBody.data?.password as string, owner.Password as string);
     if(decoded){
-      const token = jwt.sign(owner,process.env.JWT_SECRET as string)
+      const token = jwt.sign(owner,process.env.JWT_SECRET_OWNER as string)
      res.status(200).json({
       message:"Successfully loggedIn",
       token: token
-     })
+     }) 
     }
     else{
       res.status(401).json({
@@ -87,7 +88,7 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
   }
   catch(error:any){
     res.status(500).json({
-      message : "Something went wrong"
+      message : "Something went wrong"+error
     })
   }
   
@@ -119,17 +120,18 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
       data:{
         Name: parsedBody.data.name as string,
         MobileNumber: parsedBody.data.mobileNumber,
-        DOB:parsedBody.data.Dob ,
+        DOB:parsedBody.data.dob ,
         Password: encryptedPassword,
         AdhaarCardNumber : parsedBody.data.aadharCardNo as unknown as string,
-        Gender:parsedBody.data.Gender
+        Gender:parsedBody.data.gender
      
         
   
       }
     })
   
-    const token = jwt.sign(user,process.env.JWT_SECRET as string);
+    console.log("secret",process.env.JWT_SECRET_OWNER);
+    const token = jwt.sign(user,process.env.JWT_SECRET_OWNER as string);
   
     res.status(200).json({
       message : "User Successfully Signed Up",
@@ -405,17 +407,17 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
     }
     const owner = await prisma.owner.findFirst({
       where:{
-        MobileNumber :parsedBody.data.MobileNumber
+        MobileNumber :req.user.MobileNumber
       }
     });
   
     if(owner){
        await prisma.owner.update({
         where:{
-          MobileNumber:parsedBody.data.MobileNumber
+          MobileNumber:req.user.MobileNumber
         },
         data:{
-          Password : await bcrypt.hash(parsedBody.data.Password,2) 
+          Password : await bcrypt.hash(parsedBody.data.password,2) 
         }
        })
        res.status(200).json(responseObj(true,null,"Password has been successfully reset"));

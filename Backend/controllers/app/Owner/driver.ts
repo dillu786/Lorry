@@ -112,8 +112,8 @@ export const assignVehicleToDriver = async (req:Request, res:Response): Promise<
 
              await prisma.driverVehicle.create({
                 data:{
-                    DriverId: parsedBody.data?.DriverId,
-                    VehicleId: parsedBody.data?.VehicleId
+                    DriverId: parsedBody.data?.driverId,
+                    VehicleId: parsedBody.data?.vehicleId
                 }
              });
 
@@ -130,11 +130,11 @@ export const getAllDriverByOwnerId = async (req:Request,res: Response):Promise<a
 
     try{
 
-        const ownerId = req.query.ownerId as string;
+        const ownerId = req.user.Id;
     
         const drivers = await prisma.ownerDriver.findMany({
             where: {
-                OwnerId: parseInt(ownerId),
+                OwnerId: ownerId,
             },
             include: {
                 Driver: {
@@ -171,7 +171,7 @@ export const getAllDriverByOwnerId = async (req:Request,res: Response):Promise<a
     }
     catch(error:any){
         res.status(500).json({
-            message : "Something went wrong"
+            message : "Something went wrong"+error
         })
     }
 }

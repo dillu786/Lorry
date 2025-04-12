@@ -9,8 +9,8 @@ export const phoneSchema = z.string()
 export const signupSchema = z.object({
   name: nameSchema.optional(),
   mobileNumber: phoneSchema,
-  password: z.string().min(4).optional(),
-  Dob:z.date().optional(),
+  password: z.string().min(4),
+  dob:z.date().optional(),
   aadharCardNo:z.number().min(12).optional(),
-  Gender: z.enum(["MALE","FEMALE"])
+  gender: z.enum(["MALE","FEMALE"])
 });

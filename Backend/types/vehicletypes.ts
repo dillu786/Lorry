@@ -10,7 +10,7 @@ export const vehicleSchema = z.object({
 });
 
 export const updateVehicleSchema = z.object({
-  Id: z.number(),
+  Id: z.string(),
   Model: z.string(),
   Year: z.string(),
   Category: z.string(),

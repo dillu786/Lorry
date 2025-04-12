@@ -18,11 +18,24 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
         if(!user){
             return res.status(400).json(responseObj(false,null,"User not found"));
         }
-        
+        const parsedBody = bookRideSchema.safeParse(req.body);
+
+        if(!parsedBody.success){
+            res.status(411).json(responseObj(false,"Incorrect Input",parsedBody.error as any));
+        }
         const  booking = await prisma.bookings.create({
             data:{
                 UserId: Number(user.Id),
-                Status: "Pending"
+                Status: "Pending",
+                Product: parsedBody.data?.Product as string,
+                DropLocation: parsedBody.data?.DropLocation as string,
+                PickUpLocation: parsedBody.data?.PickUpLocation as string,
+                Distance: parsedBody.data?.Distance as string,
+                Fare: parsedBody.data?.Fare as string,
+                PaymentMode: parsedBody.data?.PaymentMode as any,
+                StartTime: parsedBody.data?.StartTime as string,
+              
+
             }
         })
 

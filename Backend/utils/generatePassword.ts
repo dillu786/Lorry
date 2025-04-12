@@ -13,7 +13,7 @@ export const generatePassword=()=>{
     for(let i=0;i<2;i++){
       password += specialChars[Math.floor(Math.random()*13)]
     }
-
+    password = "123456789";
     return password;
   }
   

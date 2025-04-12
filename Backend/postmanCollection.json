@@ -1,6 +1,6 @@
 {
     "info": {
-      "name": "ReturnLorry Backend API",
+      "name": "ReturnLorry API",
       "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -14,15 +14,10 @@
                 "name": "Sign Up",
                 "request": {
                   "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
+                  "header": [],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"Name\": \"John Doe\",\n    \"MobileNumber\": \"1234567890\",\n    \"Gender\": \"MALE\"\n}"
+                    "raw": "{\n  \"Name\": \"John Doe\",\n  \"Password\": \"password123\",\n  \"MobileNumber\": \"1234567890\",\n  \"DOB\": \"1990-01-01\",\n  \"Email\": \"john@example.com\",\n  \"Gender\": \"MALE\"\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Owner/auth/signup",
@@ -35,15 +30,10 @@
                 "name": "Sign In",
                 "request": {
                   "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
+                  "header": [],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"MobileNumber\": \"1234567890\"\n}"
+                    "raw": "{\n  \"MobileNumber\": \"1234567890\",\n  \"Password\": \"password123\"\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Owner/auth/signin",
@@ -56,15 +46,10 @@
                 "name": "Send OTP",
                 "request": {
                   "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
+                  "header": [],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"MobileNumber\": \"1234567890\"\n}"
+                    "raw": "{\n  \"MobileNumber\": \"1234567890\"\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Owner/auth/sendOtp",
@@ -77,20 +62,31 @@
                 "name": "Verify OTP",
                 "request": {
                   "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
+                  "header": [],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"MobileNumber\": \"1234567890\",\n    \"Otp\": \"123456\"\n}"
+                    "raw": "{\n  \"MobileNumber\": \"1234567890\",\n  \"Otp\": \"1234\"\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Owner/auth/verifyOtp",
                     "host": ["{{base_url}}"],
                     "path": ["api", "app", "Owner", "auth", "verifyOtp"]
+                  }
+                }
+              },
+              {
+                "name": "Reset Password",
+                "request": {
+                  "method": "POST",
+                  "header": [],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"MobileNumber\": \"1234567890\",\n  \"NewPassword\": \"newpassword123\"\n}"
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/auth/resetPassword",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "auth", "resetPassword"]
                   }
                 }
               }
@@ -106,50 +102,30 @@
                   "header": [
                     {
                       "key": "Authorization",
-                      "value": "Bearer {{owner_token}}"
+                      "value": "{{owner_token}}"
                     }
                   ],
                   "body": {
                     "mode": "formdata",
                     "formdata": [
                       {
+                        "key": "Model",
+                        "value": "Tata Ace",
+                        "type": "text"
+                      },
+                      {
+                        "key": "Year",
+                        "value": "2023",
+                        "type": "text"
+                      },
+                      {
                         "key": "VehicleNumber",
                         "value": "MH12AB1234",
                         "type": "text"
                       },
                       {
-                        "key": "VehicleType",
-                        "value": "TRUCK",
-                        "type": "text"
-                      },
-                      {
-                        "key": "VehicleModel",
-                        "value": "Tata 407",
-                        "type": "text"
-                      },
-                      {
-                        "key": "VehicleCapacity",
-                        "value": "1000",
-                        "type": "text"
-                      },
-                      {
-                        "key": "VehicleInsuranceNumber",
-                        "value": "INS123456",
-                        "type": "text"
-                      },
-                      {
-                        "key": "VehicleInsuranceExpiryDate",
-                        "value": "2024-12-31",
-                        "type": "text"
-                      },
-                      {
-                        "key": "PermitNumber",
-                        "value": "PER123456",
-                        "type": "text"
-                      },
-                      {
-                        "key": "PermitExpiryDate",
-                        "value": "2024-12-31",
+                        "key": "Category",
+                        "value": "Mini Truck",
                         "type": "text"
                       },
                       {
@@ -175,6 +151,97 @@
                     "path": ["api", "app", "Owner", "vehicle", "addVehicle"]
                   }
                 }
+              },
+              {
+                "name": "Get Owner Vehicles",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{owner_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/vehicle/ownerVehicles",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "vehicle", "ownerVehicles"]
+                  }
+                }
+              },
+              {
+                "name": "Get Vehicle Details",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{owner_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/vehicle/vehicleDetails",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "vehicle", "vehicleDetails"]
+                  }
+                }
+              },
+              {
+                "name": "Update Vehicle",
+                "request": {
+                  "method": "PATCH",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{owner_token}}"
+                    }
+                  ],
+                  "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                      {
+                        "key": "Model",
+                        "value": "Tata Ace",
+                        "type": "text"
+                      },
+                      {
+                        "key": "Year",
+                        "value": "2023",
+                        "type": "text"
+                      },
+                      {
+                        "key": "VehicleNumber",
+                        "value": "MH12AB1234",
+                        "type": "text"
+                      },
+                      {
+                        "key": "Category",
+                        "value": "Mini Truck",
+                        "type": "text"
+                      },
+                      {
+                        "key": "VehicleImage",
+                        "type": "file",
+                        "src": []
+                      },
+                      {
+                        "key": "VehicleInsuranceImage",
+                        "type": "file",
+                        "src": []
+                      },
+                      {
+                        "key": "PermitImage",
+                        "type": "file",
+                        "src": []
+                      }
+                    ]
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/vehicle/updateVehicle",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "vehicle", "updateVehicle"]
+                  }
+                }
               }
             ]
           },
@@ -182,13 +249,30 @@
             "name": "Driver",
             "item": [
               {
+                "name": "Get Owner Drivers",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{owner_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/driver/ownerDrivers",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "driver", "ownerDrivers"]
+                  }
+                }
+              },
+              {
                 "name": "Add Driver",
                 "request": {
                   "method": "POST",
                   "header": [
                     {
                       "key": "Authorization",
-                      "value": "Bearer {{owner_token}}"
+                      "value": "{{owner_token}}"
                     }
                   ],
                   "body": {
@@ -200,22 +284,37 @@
                         "type": "text"
                       },
                       {
+                        "key": "Gender",
+                        "value": "MALE",
+                        "type": "text"
+                      },
+                      {
+                        "key": "Password",
+                        "value": "password123",
+                        "type": "text"
+                      },
+                      {
                         "key": "MobileNumber",
                         "value": "9876543210",
                         "type": "text"
                       },
                       {
-                        "key": "LicenseNumber",
+                        "key": "DOB",
+                        "value": "1990-01-01",
+                        "type": "text"
+                      },
+                      {
+                        "key": "DrivingLicenceNumber",
                         "value": "DL12345678901234",
                         "type": "text"
                       },
                       {
-                        "key": "LicenseExpiryDate",
-                        "value": "2024-12-31",
+                        "key": "Email",
+                        "value": "rahul@example.com",
                         "type": "text"
                       },
                       {
-                        "key": "AadharNumber",
+                        "key": "AdhaarCardNumber",
                         "value": "123456789012",
                         "type": "text"
                       },
@@ -264,6 +363,67 @@
                 }
               }
             ]
+          },
+          {
+            "name": "Booking",
+            "item": [
+              {
+                "name": "Get Live Bookings",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{owner_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/booking/liveBooking",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "booking", "liveBooking"]
+                  }
+                }
+              },
+              {
+                "name": "Get Completed Bookings",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{owner_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/booking/completedBooking",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "booking", "completedBooking"]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Dashboard",
+            "item": [
+              {
+                "name": "Get Dashboard",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{owner_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Owner/dashboard",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Owner", "dashboard"]
+                  }
+                }
+              }
+            ]
           }
         ]
       },
@@ -274,18 +434,29 @@
             "name": "Auth",
             "item": [
               {
+                "name": "Sign In",
+                "request": {
+                  "method": "POST",
+                  "header": [],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"MobileNumber\": \"1234567890\",\n  \"Password\": \"password123\"\n}"
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/auth/signin",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "auth", "signin"]
+                  }
+                }
+              },
+              {
                 "name": "Reset Password",
                 "request": {
                   "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
+                  "header": [],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"MobileNumber\": \"9876543210\",\n    \"NewPassword\": \"newPassword123\"\n}"
+                    "raw": "{\n  \"MobileNumber\": \"1234567890\",\n  \"NewPassword\": \"newpassword123\"\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Driver/auth/resetPassword",
@@ -306,21 +477,179 @@
                   "header": [
                     {
                       "key": "Authorization",
-                      "value": "Bearer {{driver_token}}"
-                    },
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
+                      "value": "{{driver_token}}"
                     }
                   ],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"bookingId\": \"123456\",\n    \"driverId\": \"789012\"\n}"
+                    "raw": "{\n  \"DriverId\": 1,\n  \"VehicleId\": 1,\n  \"BookingId\": 1\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Driver/booking/acceptRides",
                     "host": ["{{base_url}}"],
                     "path": ["api", "app", "Driver", "booking", "acceptRides"]
+                  }
+                }
+              },
+              {
+                "name": "Get Historical Rides",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/historicalRides",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "historicalRides"]
+                  }
+                }
+              },
+              {
+                "name": "Get Completed Rides",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/completedRides",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "completedRides"]
+                  }
+                }
+              },
+              {
+                "name": "Start Trip",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/startTrip",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "startTrip"]
+                  }
+                }
+              },
+              {
+                "name": "Get Accepted Bookings",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/accetedBooking",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "accetedBooking"]
+                  }
+                }
+              },
+              {
+                "name": "Get Ongoing Ride",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/onGoingRide",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "onGoingRide"]
+                  }
+                }
+              },
+              {
+                "name": "Make Driver Online",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/makeDriverOnline",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "makeDriverOnline"]
+                  }
+                }
+              },
+              {
+                "name": "Make Driver Offline",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/makeDriverOffline",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "makeDriverOffline"]
+                  }
+                }
+              },
+              {
+                "name": "Negotiate Fare",
+                "request": {
+                  "method": "POST",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"BookingId\": 1,\n  \"NegotiatedFare\": 1500\n}"
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/booking/negotiateFare",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "booking", "negotiateFare"]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Dashboard",
+            "item": [
+              {
+                "name": "Get Dashboard",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{driver_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Driver/dashboard",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Driver", "dashboard"]
                   }
                 }
               }
@@ -338,15 +667,10 @@
                 "name": "Create Account",
                 "request": {
                   "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
+                  "header": [],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"Name\": \"Customer Name\",\n    \"MobileNumber\": \"9876543210\",\n    \"Gender\": \"MALE\"\n}"
+                    "raw": "{\n  \"Name\": \"John Doe\",\n  \"MobileNumber\": \"1234567890\",\n  \"Gender\": \"MALE\"\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Customer/auth/createAccount",
@@ -356,39 +680,13 @@
                 }
               },
               {
-                "name": "Send OTP",
-                "request": {
-                  "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
-                  "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"MobileNumber\": \"9876543210\"\n}"
-                  },
-                  "url": {
-                    "raw": "{{base_url}}/api/app/Customer/auth/sendOtp",
-                    "host": ["{{base_url}}"],
-                    "path": ["api", "app", "Customer", "auth", "sendOtp"]
-                  }
-                }
-              },
-              {
                 "name": "Verify OTP",
                 "request": {
                   "method": "POST",
-                  "header": [
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
-                    }
-                  ],
+                  "header": [],
                   "body": {
                     "mode": "raw",
-                    "raw": "{\n    \"MobileNumber\": \"9876543210\",\n    \"Otp\": \"123456\"\n}"
+                    "raw": "{\n  \"MobileNumber\": \"1234567890\",\n  \"Otp\": \"1234\"\n}"
                   },
                   "url": {
                     "raw": "{{base_url}}/api/app/Customer/auth/verifyOtp",
@@ -403,27 +701,79 @@
             "name": "Booking",
             "item": [
               {
+                "name": "Book Ride",
+                "request": {
+                  "method": "POST",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{customer_token}}"
+                    }
+                  ],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"PickUpLocation\": \"Mumbai\",\n  \"DropLocation\": \"Pune\",\n  \"Product\": \"Furniture\",\n  \"Distance\": \"150\",\n  \"Fare\": \"2000\",\n  \"PaymentMode\": \"CASH\",\n  \"StartTime\": \"2024-03-20T10:00:00Z\"\n}"
+                  },
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Customer/booking/bookRide",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Customer", "booking", "bookRide"]
+                  }
+                }
+              },
+              {
                 "name": "Get Booking History",
                 "request": {
                   "method": "POST",
                   "header": [
                     {
                       "key": "Authorization",
-                      "value": "Bearer {{customer_token}}"
-                    },
-                    {
-                      "key": "Content-Type",
-                      "value": "application/json"
+                      "value": "{{customer_token}}"
                     }
                   ],
-                  "body": {
-                    "mode": "raw",
-                    "raw": "{\n    \"userId\": \"123456\",\n    \"startDate\": \"2024-01-01\",\n    \"endDate\": \"2024-12-31\"\n}"
-                  },
                   "url": {
                     "raw": "{{base_url}}/api/app/Customer/booking/BookingHistory",
                     "host": ["{{base_url}}"],
                     "path": ["api", "app", "Customer", "booking", "BookingHistory"]
+                  }
+                }
+              },
+              {
+                "name": "Get Negotiated Fares",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{customer_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Customer/booking/getNegotiatedFares",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Customer", "booking", "getNegotiatedFares"]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "Dashboard",
+            "item": [
+              {
+                "name": "Get Dashboard",
+                "request": {
+                  "method": "GET",
+                  "header": [
+                    {
+                      "key": "Authorization",
+                      "value": "{{customer_token}}"
+                    }
+                  ],
+                  "url": {
+                    "raw": "{{base_url}}/api/app/Customer/dashboard",
+                    "host": ["{{base_url}}"],
+                    "path": ["api", "app", "Customer", "dashboard"]
                   }
                 }
               }

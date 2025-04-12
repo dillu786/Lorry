@@ -18,7 +18,7 @@ export const signIn = async (req:Request, res: Response): Promise<any> =>{
 
     const driver = await prisma.driver.findFirst({
       where:{
-        MobileNumber: parsedBody.data?.MobileNumber
+        MobileNumber: parsedBody.data?.mobileNumber
       }
     })
 
@@ -37,7 +37,7 @@ export const signIn = async (req:Request, res: Response): Promise<any> =>{
 
   }
   catch(error:any){
-    res.status(500).json(responseObj(false,null,"Something went wrong"));
+    res.status(500).json(responseObj(false,null,"Something went wrong"+error));
 
   }
 }
@@ -52,17 +52,17 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
     }
     const driver = await prisma.driver.findFirst({
       where:{
-        MobileNumber :parsedBody.data.MobileNumber
+        MobileNumber :req.user.MobileNumber
       }
     });
   
     if(driver){
        await prisma.driver.update({
         where:{
-          MobileNumber:parsedBody.data.MobileNumber
+          MobileNumber:req.user.MobileNumber
         },
         data:{
-          Password : await bcrypt.hash(parsedBody.data.Password,2) 
+          Password : await bcrypt.hash(parsedBody.data.password,2) 
         }
        })
        res.status(200).json(responseObj(true,null,"Password has been successfully reset"));
@@ -70,7 +70,7 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
   }
 
   catch(error: any){
-    res.status(500).json(responseObj(false,null,"Something went wrong"));
+    res.status(500).json(responseObj(false,null,"Something went wrong"+error,error));
   }
 
 

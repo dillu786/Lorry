@@ -182,7 +182,6 @@ model Bookings {
   PaymentMode                 PaymentMode
   BookingTime                 DateTime @default(now())
   StartTime                   DateTime
-  EndTime                     DateTime
   User                        User @relation(fields: [UserId],references: [Id])
   CreatedDateTime             DateTime @default(now())
   UpdatedDateTime             DateTime @default(now())
