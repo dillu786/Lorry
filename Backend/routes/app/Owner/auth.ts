@@ -18,9 +18,11 @@ router.post("/signin",signIn);
 router.post("/verifyOtp",verifyOTP);
 router.post("/sendOtp",sendOtp);
 router.post("/resetPassword",OwnerMiddleware,resetPassword);
-router.post("/uploadDoc",OwnerMiddleware,upload.fields([
+router.post("/uploadDoc",OwnerMiddleware,
+    upload.fields([
     { name: 'FrontAadhar',maxCount:1},
     { name: 'BackAadhar',maxCount:1},
     {name: 'Pan',maxCount:1}
-]),uploadDocument);
+]),
+uploadDocument);
 export default router;

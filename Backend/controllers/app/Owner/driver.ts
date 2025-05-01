@@ -27,9 +27,20 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
                 message: "Incorrect Input"+parsedBody.error,
             })
         }
-        else{
-          
+       const driverExist =await prisma.driver.findMany({
+        where:{
+            OR:[
+                {AdhaarCardNumber: parsedBody.data?.AadharNumber},
+                {PanNumber: parsedBody.data?.PanNumber},
+                {MobileNumber: parsedBody.data?.MobileNumber}
+            ]
         }
+       })
+       if(driverExist.length>0){
+        return res.status(411).json({
+            message: "Aadhar/Pan/MobileNumber already exist"
+        });
+       }
      //@ts-ignore
      if (!req.files || !req.files['aadharImageFront'] || !req.files['aadharImageBack'] || !req.files['panImage'] || !req.files["licenseImageFront"]|| !req.files["licenseImageBack"]|| !req.files["driverImage"]) {
         return res.status(400).json({ error: 'Missing required image files' });
@@ -63,7 +74,7 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
 
       const driverPassword = generatePassword();
       const encryptedPassword = await bcrypt.hash(driverPassword,2);
-
+      
       const driver = await prisma.driver.create({
         data:{
             Name: parsedBody.data?.Name,
@@ -97,7 +108,8 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
 
     catch(error:any){
         res.status(500).json({
-            message: "Something went wrong"
+            message: "Something went wrong"+error
+            
         })
     }
     

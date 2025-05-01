@@ -245,23 +245,41 @@ export const sendOtp = async (req: Request, res: Response): Promise<any> => {
 export const uploadDocument = async (req:Request, res:Response):Promise<any>=>{
 
   try{
+    console.log("control reached 248");
     const parsedBody = uploadDocSchema.safeParse(req.body);
     if(!parsedBody.success){
      return  res.status(411).json({
        message: "Incorrect Input"
      })
     }
-   
+   console.log("control reached here");
+   const ownerExist = await prisma.owner.findMany({
+    where:{
+      OR:[
+        {AdhaarCardNumber: parsedBody.data.AadharNumber},
+        {PanNumber: parsedBody.data.PanNumber}
+
+      ]
+  
+    }
+   });
+   console.log("ownerExist",ownerExist);
+   if( ownerExist.length>0){
+    return res.status(411).json({
+      message: "Aadhar Card Number and Pan Number already Exist"
+    });
+
+   }
     //@ts-ignore
-    if (!req.files || !req.files['AadharFront'] || !req.files['AadharBack'] || !req.files['Pan']) {
+    if (!req.files || !req.files['FrontAadhar'] || !req.files['BackAadhar'] || !req.files['Pan']) {
      return res.status(400).json({ error: 'Missing required image files' });
    }
         // @ts-ignore
-        const adharFrontBuffer = await sharp(req.files['AadharFront'][0].buffer)
+        const adharFrontBuffer = await sharp(req.files['FrontAadhar'][0].buffer)
         .resize({ height: 1920, width: 1080, fit: "contain" })
         .toBuffer();
         //@ts-ignore
-        const aadharBackBuffer = await sharp(req.files['AadharBack'][0].buffer)
+        const aadharBackBuffer = await sharp(req.files['BackAadhar'][0].buffer)
         .resize({ height: 1920, width: 1080, fit: "contain" })
         .toBuffer();
         //@ts-ignore
@@ -273,21 +291,22 @@ export const uploadDocument = async (req:Request, res:Response):Promise<any>=>{
         const aadharBackName = generateFileName();
         const panName = generateFileName();
         //@ts-ignore
-        await uploadFile(adharFrontBuffer,aadharFrontName,req.files['AadharFront'][0].mimetype);
+        await uploadFile(adharFrontBuffer,aadharFrontName,req.files['FrontAadhar'][0].mimetype);
         //@ts-ignore
-        await uploadFile(aadharBackBuffer,aadharBackName,req.files['AadharBack'][0].mimetype);
+        await uploadFile(aadharBackBuffer,aadharBackName,req.files['BackAadhar'][0].mimetype);
         //@ts-ignore
         await uploadFile(panBuffer,panName,req.files['Pan'][0].mimetype);
    
         await prisma.owner.update({
          where:{
            //@ts-ignore
-           MobileNumber: req.user.mobileNumber
+           MobileNumber: req.user.MobileNumber
          },
          data:{
            AdhaarCardNumber: parsedBody.data.AadharNumber as string,
            BackSideAdhaarImage: aadharFrontName,
-           PanImage: panName
+           PanImage: panName,
+           PanNumber: parsedBody.data.PanNumber
          }
         })
    res.status(200).json({

@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken"
 import express from "express";
 const app = express();
 app.use(express.json());
+
 export const Drivermiddleware = async (req:Request,res:Response, next:NextFunction):Promise<any>=>{
     try{
         
@@ -84,6 +85,7 @@ export const OwnerMiddleware = async (req:Request,res:Response, next:NextFunctio
                 //@ts-ignore
                 req.user=res
             });
+            console.log("req",req.user);
             next()
         }
         else{
@@ -94,7 +96,8 @@ export const OwnerMiddleware = async (req:Request,res:Response, next:NextFunctio
     }
 
     catch(error:any){
-        res.status(400).json({
+        console.log("error",error);
+       return res.status(400).json({
             message : "Token not found"
         })
     }

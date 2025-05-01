@@ -202,4 +202,135 @@ model FareNegotiation {
   NegotiatedTime DateTime @default(now())
   @@unique([BookingId, DriverId])
 }
+model Admin {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  fullName      String
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLogin     DateTime?
+
+  // Relations
+  roles         UserRole[]
+  createdRoles  Role[]    @relation("RoleCreator")
+  assignedRoles UserRole[] @relation("RoleAssigner")
+  auditLogs     PermissionAuditLog[]
+
+  @@index([email])
+  @@index([isActive])
+  @@map("admin")
+}
+
+model PermissionCategory {
+  id           String       @id @default(cuid())
+  name         String       @unique
+  description  String?
+  icon         String?
+  displayOrder Int          @default(0)
+  // Relations
+  permissions  Permission[]
+
+  @@index([displayOrder])
+  @@map("permission_categories")
+}
+
+model Permission {
+  id           String            @id @default(cuid())
+  name         String
+  code         String            @unique
+  description  String?
+  
+  // Relations
+  category     PermissionCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId   String
+  roles        RolePermission[]
+  auditLogs    PermissionAuditLog[]
+
+  @@index([code])
+  @@index([categoryId])
+  @@map("permissions")
+}
+
+model Role {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  description   String?
+  isSystemRole  Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  createdBy     Admin?     @relation("RoleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById   String?
+  users         UserRole[]
+  permissions   RolePermission[]
+  auditLogs     PermissionAuditLog[]
+
+  @@index([name])
+  @@index([isSystemRole])
+  @@map("roles")
+}
+
+model UserRole {
+  id            String    @id @default(cuid())
+  assignedAt    DateTime  @default(now())
+  
+  // Relations
+  admin          Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  adminId        String
+  role          Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId        String
+  assignedBy    Admin?     @relation("RoleAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  assignedById  String?
+
+  @@unique([adminId, roleId])
+  @@index([adminId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id            String    @id @default(cuid())
+  
+  // Relations
+  role          Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId        String
+  permission    Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionId  String
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+enum AuditActionType {
+  GRANT
+  REVOKE
+  ROLE_CREATE
+  ROLE_UPDATE
+  ROLE_DELETE
+}
+
+model PermissionAuditLog {
+  id              String          @id @default(cuid())
+  actionType      AuditActionType
+  details         String?
+  actionTimestamp DateTime        @default(now())
+  
+  // Relations
+  admin           Admin            @relation(fields: [adminId], references: [id])
+  adminId         String
+  role            Role?           @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  roleId          String?
+  permission      Permission?     @relation(fields: [permissionId], references: [id], onDelete: SetNull)
+  permissionId    String?
+
+  @@index([actionTimestamp])
+  @@index([adminId])
+  @@index([roleId])
+  @@map("permission_audit_logs")
+}
 

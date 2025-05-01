@@ -15,6 +15,7 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
                 MobileNumber: mobileNumber
             }
         })
+        
         if(!user){
             return res.status(400).json(responseObj(false,null,"User not found"));
         }
