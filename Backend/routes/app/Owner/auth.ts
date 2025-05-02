@@ -3,7 +3,8 @@ import multer from "multer";
 import { resetPassword, sendOtp,verifyOTP } from "../../../controllers/app/Owner/auth";
 import { OwnerMiddleware } from "../../../middlewares/middleware";
 import { uploadDocument } from "../../../controllers/app/Owner/auth";
-import { signUp,signIn } from "../../../controllers/app/Owner/auth";
+import { signUp,signIn,register } from "../../../controllers/app/Owner/auth";
+
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
 const router = express.Router();
@@ -18,6 +19,7 @@ router.post("/signin",signIn);
 router.post("/verifyOtp",verifyOTP);
 router.post("/sendOtp",sendOtp);
 router.post("/resetPassword",OwnerMiddleware,resetPassword);
+router.post("/register",OwnerMiddleware,upload.single('OwnerImage'),register);
 router.post("/uploadDoc",OwnerMiddleware,
     upload.fields([
     { name: 'FrontAadhar',maxCount:1},

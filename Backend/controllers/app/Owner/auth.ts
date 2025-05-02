@@ -3,7 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import express from "express";
 import { date, unknown, z } from 'zod';
 import { marked } from 'marked';
-import { PrismaClient } from '@prisma/client';
+import { Gender, PrismaClient } from '@prisma/client';
 import generateOTP from "../../../utils/generateOtp";
 import axios from 'axios';
 import jwt from "jsonwebtoken";
@@ -15,6 +15,8 @@ import { signInSechema } from '../../../types/signInTypes';
 import bcrypt from "bcrypt"
 import { resetPasswordSchema } from '../../../types/resetPasswordType';
 import { responseObj } from '../../../utils/response';
+import { registerSchema } from '../../../types/Owner/register';
+import moment from 'moment';
 const app =express();
 
 app.use(express.json());
@@ -450,46 +452,68 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
 
 }
 // Declaring the handleSignup function as a const
-// export const register = async (req: Request, res: Response): Promise<any> => {
-//   const { name, phoneNumber } = req.body;
+export const register = async (req: Request, res: Response): Promise<any> => {
+  
 
-//   try {
-//     // Validate the incoming data with Zod
-//     const parsedBody = signupSchema.safeParse(req.body);
-//     if(!parsedBody.success){
-//       return res.status(411).json({
-//         message: "Incorrect Input"
-//       });
-//     }
-//     //@ts-ignore
-//    if(req.user.mobileNumber!= parsedBody.data.phoneNumber){
-//     return res.status(411).json({
-//       message:"Use the same mobile number which was used to receive Opt"
-//     })
-//    }
-//    const user =await prisma.owner.create({
-//       data:{
-//         Name: parsedBody.data.name as string,
-//         MobileNumber: parsedBody.data.mobileNumber,
-//         DOB:parsedBody.data.Dob ,
-//         AdhaarCardNumber : parsedBody.data.aadharCardNo as unknown as string,
-//         LastLoggedIn: Date.now() as unknown as string
-//       }
-//     })
 
-//     // If validation passes, respond with a success message
-//     res.status(200).json({ user: user, message: "Signup successful!" });
-//   } catch (error) {
-//     if (error instanceof z.ZodError) {
-//       // If validation fails, return the error details
-//       return res.status(400).json({
-//         message: "Validation failed",
-//         errors: error.errors,
-//       });
-//     }
-//     // Handle other types of errors
-//     res.status(500).json({ message: "Internal server error" });
-//   }
-// };
+  try {
+    // Validate the incoming data with Zod
+    console.log(req.file);
+    const parsedBody = registerSchema.safeParse(req.body);
+    if(!parsedBody.success){
+      return res.status(411).json({
+        message: "Incorrect Input"+parsedBody.error
+      });
+    }
+    //@ts-ignore
+   if(req.user.mobileNumber!= parsedBody.data.phoneNumber){
+    return res.status(411).json({
+      message:"Use the same mobile number which was used to receive Opt"
+    })
+   }
+   //@ts-ignore
+   if(!req.file){
+    return res.status(400).json({
+      message: "Owner Image is required"
+    });
+
+  
+
+   }
+  //@ts-ignore
+   const ownerImage = req.file
+
+   const ownerImageName =  generateFileName();
+
+   await uploadFile(ownerImage.buffer,ownerImageName,ownerImage.mimetype);
+
+   const owner =await prisma.owner.update({
+     where:{
+      MobileNumber: req.user.MobileNumber
+
+     },
+     data:{
+      Name: parsedBody.data.Name,
+      DOB: moment(parsedBody.data.Dob, "DD-MM-YYYY").toDate(),
+      Email: parsedBody.data.Email,
+      Gender: parsedBody.data.Gender,
+      OwnerImage: ownerImageName 
+     }
+    });
+
+    // If validation passes, respond with a success message
+    res.status(200).json({  message: "registered successfully" });
+  } catch (error) {
+    
+      // If validation fails, return the error details
+      return res.status(500).json({
+        message: "Something went wrong"+error,
+        
+      });
+    
+    // Handle other types of errors
+
+  }
+};
 
 
