@@ -111,7 +111,10 @@ model DriverVehicle {
 
   Driver    Driver  @relation(fields: [DriverId], references: [Id])
   Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id])
+
+  @@unique([DriverId, VehicleId])
 }
+
 
 model OwnerVehicle {
   Id        Int     @default(autoincrement()) @id

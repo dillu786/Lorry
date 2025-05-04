@@ -121,7 +121,19 @@ export const assignVehicleToDriver = async (req:Request, res:Response): Promise<
          if(!parsedBody.success){
             return res.status(411).json(responseObj(false,null,"Incorrect Input"));
          }
+            const vehicleAlreadyAssignedToDriver = await prisma.driverVehicle.findMany({
+                where:{
+                    DriverId: parsedBody.data.driverId,
+                    VehicleId: parsedBody.data.vehicleId
+                }
+               
+             })
 
+             if(vehicleAlreadyAssignedToDriver){
+               return res.status(411).json({
+                    message: "Vehicle Already assigned to Driver"
+                })
+             }
              await prisma.driverVehicle.create({
                 data:{
                     DriverId: parsedBody.data?.driverId,
