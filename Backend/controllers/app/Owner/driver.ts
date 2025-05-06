@@ -129,7 +129,27 @@ export const assignVehicleToDriver = async (req:Request, res:Response): Promise<
                
              })
 
-             if(vehicleAlreadyAssignedToDriver){
+             const vehicleExists = await prisma.vehicle.findFirst({
+                where:{
+                    Id: parsedBody.data.vehicleId
+                }
+             });
+
+             if(!vehicleExists){
+                return res.status(400).json(responseObj(false,"vehicleId does not exist",""));
+             }
+
+             const driverExists = await prisma.driver.findFirst({
+                where:{
+                    Id: parsedBody.data.driverId
+                }
+             })
+
+             if(!driverExists){
+                return res.status(400).json(responseObj(false,"driverId does not exist",""));
+             }
+
+             if(vehicleAlreadyAssignedToDriver.length>0){
                return res.status(411).json({
                     message: "Vehicle Already assigned to Driver"
                 })
@@ -146,7 +166,7 @@ export const assignVehicleToDriver = async (req:Request, res:Response): Promise<
 
     }
     catch(error:any){
-        res.status(500).json(responseObj(false,null,"Something went wrong"));
+        res.status(500).json(responseObj(false,null,"Something went wrong")+error);
     }
 }
 
