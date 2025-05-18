@@ -212,57 +212,57 @@ export const getVehicleByVehicleId = async (req:Request, res: Response):Promise<
 
 }
 
-export const updateVehicleByVehicleId = async (req:Request, res: Response): Promise<any>=>{
-
-  try{
-
+export const updateVehicleByVehicleId = async (req: Request, res: Response): Promise<any> => {
+  try {
     const parsedBody = updateVehicleSchema.safeParse(req.body);
-    if(!parsedBody.success){
-      return res.status(411).json(responseObj(false,null,"Incorrect input",parsedBody.error as any));
+    if (!parsedBody.success) {
+      return res.status(411).json(responseObj(false, null, "Incorrect input", parsedBody.error as any));
     }
-  
+
     const vehicleDetails = await prisma.vehicle.findFirst({
-      where:{
-        Id: parseInt(parsedBody.data.Id)
-      }
-    });
-  
-    //@ts-ignore
-    let vehicleImageData = req.files['VehicleImage'][0];
-    //@ts-ignore
-    let vehicleInsuranceImageData = req.files['VehicleInsuranceImage'][0];
-    //@ts-ignore
-    let vehiclePermitImageData = req.files['PermitImage'][0]
-  
-  // @ts-ignore
-    if(req.files['VehicleImage']){
-     await uploadFile(vehicleImageData.buffer,vehicleDetails?.VehicleImage as string,vehicleImageData.mimetype)
-    }
-  // @ts-ignore
-    if(req.files['VehicleInsuranceImage']){
-      await uploadFile(vehicleInsuranceImageData.buffer,vehicleDetails?.VehicleInsuranceImage as string, vehicleInsuranceImageData.mimetype)
-    }
-    //@ts-ignore
-    if(req.files['PermitImage']){
-      await uploadFile(vehiclePermitImageData.buffer,vehicleDetails?.PermitImage as string, vehiclePermitImageData.mimetype);
-  
-    }
-  
-    await prisma.vehicle.update({
-      where:{
-        Id: parseInt(parsedBody.data.Id) 
+      where: {
+        Id: parseInt(parsedBody.data.Id),
       },
-      data:{
-         Model:parsedBody.data.Model,
-         Year:parsedBody.data.Year,
-         VehicleNumber:parsedBody.data.VehicleNumber
-      }  
-    })
+    });
 
-    res.status(200).json(responseObj(true,null,"Successfully Updated"));
-  }
-  catch(error:any){
-    res.status(500).json(responseObj(false,null,"Something went wrong"));
-  }
-}
+    if (!vehicleDetails) {
+      return res.status(404).json(responseObj(false, null, "Vehicle not found"));
+    }
 
+    // Safely access files using optional chaining
+    //@ts-ignore
+    const vehicleImageData = req.files?.['VehicleImage']?.[0];
+    //@ts-ignore
+    const vehicleInsuranceImageData = req.files?.['VehicleInsuranceImage']?.[0];
+    //@ts-ignore
+    const vehiclePermitImageData = req.files?.['PermitImage']?.[0];
+
+    if (vehicleImageData) {
+      await uploadFile(vehicleImageData.buffer, vehicleDetails.VehicleImage as string, vehicleImageData.mimetype);
+    }
+
+    if (vehicleInsuranceImageData) {
+      await uploadFile(vehicleInsuranceImageData.buffer, vehicleDetails.VehicleInsuranceImage as string, vehicleInsuranceImageData.mimetype);
+    }
+
+    if (vehiclePermitImageData) {
+      await uploadFile(vehiclePermitImageData.buffer, vehicleDetails.PermitImage as string, vehiclePermitImageData.mimetype);
+    }
+
+    await prisma.vehicle.update({
+      where: {
+        Id: parseInt(parsedBody.data.Id),
+      },
+      data: {
+        Model: parsedBody.data.Model,
+        Year: parsedBody.data.Year,
+        VehicleNumber: parsedBody.data.VehicleNumber,
+      },
+    });
+
+    res.status(200).json(responseObj(true, null, "Successfully Updated"));
+  } catch (error: any) {
+    console.error("Error updating vehicle:", error);
+    res.status(500).json(responseObj(false, null, "Internal Server Error"));
+  }
+};
