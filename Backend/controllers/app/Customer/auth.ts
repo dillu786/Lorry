@@ -16,7 +16,6 @@ const createAccountSchema = z.object({
     Gender: z.enum(["MALE","FEMALE"])
 })
 export const createAccount = async (req:Request, res:Response):Promise<any>=>{
-
     try{
 
         const parsedBody = createAccountSchema.safeParse(req.body);
@@ -25,6 +24,14 @@ export const createAccount = async (req:Request, res:Response):Promise<any>=>{
             res.status(411).json(responseObj(false,null,"Incorrect input",parsedBody.error as any))
         }
         
+        const userExist = await prisma.user.findFirst({
+          where:{
+            MobileNumber: parsedBody.data?.MobileNumber
+          }
+        });
+        if(userExist){
+          return res.status(411).json(responseObj(false,"Mobile Number already registered",parsedBody.error as any))
+        }
         const user =await prisma.user.create({
             data:{
                 Name: parsedBody.data?.Name as string,
@@ -84,9 +91,9 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
   
       }
   
-      await prisma.owner.update({
+      await prisma.user.updateMany({
         where:{
-          MobileNumber: parsedBody.data.MobileNumber
+          MobileNumber: parsedBody.data.MobileNumber 
         },
         data:{
           LastLoggedIn: new Date()
