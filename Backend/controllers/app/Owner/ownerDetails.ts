@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { responseObj } from "../../../utils/response";
+import { getObjectSignedUrl } from "../../../utils/s3utils";
 
 const prisma = new PrismaClient();
 
@@ -14,6 +15,13 @@ export const getOwnerDetails = async (req: Request, res: Response): Promise<any>
       select: { VehicleId: true }
     });
 
+    const owner = await prisma.owner.findFirst({
+      where:{
+        Id: ownerId
+      }
+    });
+
+    const ownnerImage = await getObjectSignedUrl(owner?.OwnerImage as string);
     const vehicleIds = Vehicles.map(v => v.VehicleId);
 
     // Count of active ("Ongoing") vehicle bookings
@@ -32,6 +40,7 @@ export const getOwnerDetails = async (req: Request, res: Response): Promise<any>
       select: { DriverId: true }
     });
 
+  
     const driverIds = drivers.map(d => d.DriverId);
 
     // Count of completed rides by those drivers
@@ -45,12 +54,15 @@ export const getOwnerDetails = async (req: Request, res: Response): Promise<any>
     });
 
     // 5 most recent bookings by the owner's drivers
-    const recentRides = await prisma.bookings.findMany({
+    const recentVehicles = await prisma.bookings.findMany({
       where: {
-        DriverId: { in: driverIds }
+        VehicleId: { in: vehicleIds }
       },
       orderBy: {
         CreatedDateTime: 'desc' // change to 'updatedAt' or relevant timestamp if needed
+      },
+      include:{
+        Vehicle:true
       },
       take: 5
     });
@@ -58,9 +70,11 @@ export const getOwnerDetails = async (req: Request, res: Response): Promise<any>
     // Send the collected data back
     res.status(200).json(responseObj(true,{
       myVehicles:vehicleIds.length,
+      Name:owner?.Name,
+      Image:ownnerImage,
       activeVehicles,
       completedRides,
-      recentRides
+      recentVehicles
     },"Successfully fetched"));
 
   } catch (error) {
