@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { responseObj } from "../../../utils/response";
 import { getObjectSignedUrl } from "../../../utils/s3utils";
+import { boolean } from "zod";
 
 const prisma = new PrismaClient();
 
@@ -14,15 +15,33 @@ export const getOwnerDetails = async (req: Request, res: Response): Promise<any>
       where: { OwnerId: ownerId },
       select: { VehicleId: true }
     });
+    const vehicleIds = Vehicles.map(v => v.VehicleId);
 
     const owner = await prisma.owner.findFirst({
       where:{
         Id: ownerId
       }
     });
+    let isRegisterationDone = false;
+    let isDocUploaded = false;
+    let isVehicleAdded =false;
+
+    if(owner?.OwnerImage && owner.AdhaarCardNumber && owner.Email && owner.Name){
+      isRegisterationDone = true
+    }
+
+    if(owner?.BackSideAdhaarImage && owner.FrontSideAdhaarImage && owner.PanImage && owner.PanNumber){
+      isDocUploaded = true
+    }
+    
+    if(vehicleIds.length>0){
+      isVehicleAdded = true
+    }
+
+
 
     const ownnerImage = await getObjectSignedUrl(owner?.OwnerImage as string);
-    const vehicleIds = Vehicles.map(v => v.VehicleId);
+   
 
     // Count of active ("Ongoing") vehicle bookings
     const activeVehicles = await prisma.bookings.count({
@@ -74,7 +93,10 @@ export const getOwnerDetails = async (req: Request, res: Response): Promise<any>
       Image:ownnerImage,
       activeVehicles,
       completedRides,
-      recentVehicles
+      recentVehicles,
+      isDocUploaded,
+      isRegisterationDone,
+      isVehicleAdded
     },"Successfully fetched"));
 
   } catch (error) {

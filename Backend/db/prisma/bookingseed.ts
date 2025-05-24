@@ -16,25 +16,25 @@ async function main() {
     await createSampleUsers();
   }
 
-  if (driverCount === 0) {
-    console.log('Creating sample drivers...');
-    await createSampleDrivers();
-  }
+  // if (driverCount === 0) {
+  //   console.log('Creating sample drivers...');
+  //   await createSampleDrivers();
+  // }
 
-  if (ownerCount === 0) {
-    console.log('Creating sample owners...');
-    await createSampleOwners();
-  }
+  // if (ownerCount === 0) {
+  //   console.log('Creating sample owners...');
+  //   await createSampleOwners();
+  // }
 
-  if (vehicleCount === 0) {
-    console.log('Creating sample vehicles...');
-    await createSampleVehicles();
-  }
+  // if (vehicleCount === 0) {
+  //   console.log('Creating sample vehicles...');
+  //   await createSampleVehicles();
+  // }
 
   // Create Driver-Vehicle and Owner-Vehicle relationships
-  await createDriverVehicleRelationships();
-  await createOwnerVehicleRelationships();
-  await createOwnerDriverRelationships();
+  // await createDriverVehicleRelationships();
+  // await createOwnerVehicleRelationships();
+  // await createOwnerDriverRelationships();
 
   // Now fetch existing data to reference in bookings
   const users = await prisma.user.findMany({
@@ -156,6 +156,8 @@ async function createSampleUsers() {
   const userData = Array(30).fill(null).map(() => ({
     Name: faker.person.fullName(),
     MobileNumber: faker.phone.number(),
+    Password: faker.internet.password(),
+    Email: faker.internet.email(),
     Gender: faker.helpers.arrayElement([Gender.MALE, Gender.FEMALE]),
     CreatedDate: faker.date.past(),
     LastLoggedIn: faker.date.recent()
@@ -182,226 +184,226 @@ async function createSampleUsers() {
   });
 }
 
-async function createSampleDrivers() {
-  const driverData = Array(10).fill(null).map(() => {
-    const gender = faker.helpers.arrayElement([Gender.MALE, Gender.FEMALE]);
-    const firstName = gender === Gender.MALE ? faker.person.firstName('male') : faker.person.firstName('female');
-    const lastName = faker.person.lastName();
-    const fullName = `${firstName} ${lastName}`;
+// async function createSampleDrivers() {
+//   const driverData = Array(10).fill(null).map(() => {
+//     const gender = faker.helpers.arrayElement([Gender.MALE, Gender.FEMALE]);
+//     const firstName = gender === Gender.MALE ? faker.person.firstName('male') : faker.person.firstName('female');
+//     const lastName = faker.person.lastName();
+//     const fullName = `${firstName} ${lastName}`;
     
-    return {
-      Name: fullName,
-      Gender: gender,
-      Password: faker.internet.password(),
-      MobileNumber: faker.phone.number({ unique: true }),
-      DOB: faker.date.birthdate({ min: 18, max: 65, mode: 'age' }),
-      DrivingLicenceNumber: `DL${faker.string.alphanumeric(10).toUpperCase()}`,
-      DrivingLicenceFrontImage: faker.image.url(),
-      DrivingLicenceBackImage: faker.image.url(),
-      DriverImage: faker.image.avatar(),
-      Email: faker.internet.email({ firstName, lastName }),
-      AdhaarCardNumber: `${faker.number.int({ min: 100000000000, max: 999999999999 })}`,
-      FrontSideAdhaarImage: faker.image.url(),
-      BackSideAdhaarImage: faker.image.url(),
-      PanNumber: `${faker.string.alpha(5).toUpperCase()}${faker.number.int({ min: 1000, max: 9999 })}${faker.string.alpha(1).toUpperCase()}`,
-      PanImage: faker.image.url(),
-      LastLoggedIn: faker.date.recent(),
-      CreatedDate: faker.date.past(),
-      IsOnline: faker.datatype.boolean()
-    };
-  });
+//     return {
+//       Name: fullName,
+//       Gender: gender,
+//       Password: faker.internet.password(),
+//       MobileNumber: faker.phone.number({ unique: true }),
+//       DOB: faker.date.birthdate({ min: 18, max: 65, mode: 'age' }),
+//       DrivingLicenceNumber: `DL${faker.string.alphanumeric(10).toUpperCase()}`,
+//       DrivingLicenceFrontImage: faker.image.url(),
+//       DrivingLicenceBackImage: faker.image.url(),
+//       DriverImage: faker.image.avatar(),
+//       Email: faker.internet.email({ firstName, lastName }),
+//       AdhaarCardNumber: `${faker.number.int({ min: 100000000000, max: 999999999999 })}`,
+//       FrontSideAdhaarImage: faker.image.url(),
+//       BackSideAdhaarImage: faker.image.url(),
+//       PanNumber: `${faker.string.alpha(5).toUpperCase()}${faker.number.int({ min: 1000, max: 9999 })}${faker.string.alpha(1).toUpperCase()}`,
+//       PanImage: faker.image.url(),
+//       LastLoggedIn: faker.date.recent(),
+//       CreatedDate: faker.date.past(),
+//       IsOnline: faker.datatype.boolean()
+//     };
+//   });
 
-  for (const driver of driverData) {
-    try {
-      await prisma.driver.create({
-        data: driver
-      });
-    } catch (error) {
-      console.error(`Failed to create driver: ${error.message}`);
-    }
-  }
+//   for (const driver of driverData) {
+//     try {
+//       await prisma.driver.create({
+//         data: driver
+//       });
+//     } catch (error) {
+//       console.error(`Failed to create driver: ${error.message}`);
+//     }
+//   }
   
-  // Create driver wallets
-  const drivers = await prisma.driver.findMany({
-    select: { Id: true }
-  });
+//   // Create driver wallets
+//   const drivers = await prisma.driver.findMany({
+//     select: { Id: true }
+//   });
   
-  const driverWallets = drivers.map(driver => ({
-    DriverId: driver.Id,
-    Amount: faker.number.int({ min: 0, max: 10000 }),
-    LastUpdated: faker.date.recent()
-  }));
+//   const driverWallets = drivers.map(driver => ({
+//     DriverId: driver.Id,
+//     Amount: faker.number.int({ min: 0, max: 10000 }),
+//     LastUpdated: faker.date.recent()
+//   }));
   
-  await prisma.driverWallet.createMany({
-    data: driverWallets,
-    skipDuplicates: true,
-  });
-}
+//   await prisma.driverWallet.createMany({
+//     data: driverWallets,
+//     skipDuplicates: true,
+//   });
+// }
 
-async function createSampleOwners() {
-  const ownerData = Array(5).fill(null).map(() => {
-    const gender = faker.helpers.arrayElement([Gender.MALE, Gender.FEMALE]);
-    const firstName = gender === Gender.MALE ? faker.person.firstName('male') : faker.person.firstName('female');
-    const lastName = faker.person.lastName();
-    const fullName = `${firstName} ${lastName}`;
+// async function createSampleOwners() {
+//   const ownerData = Array(5).fill(null).map(() => {
+//     const gender = faker.helpers.arrayElement([Gender.MALE, Gender.FEMALE]);
+//     const firstName = gender === Gender.MALE ? faker.person.firstName('male') : faker.person.firstName('female');
+//     const lastName = faker.person.lastName();
+//     const fullName = `${firstName} ${lastName}`;
     
-    return {
-      Name: fullName,
-      Password: faker.internet.password(),
-      MobileNumber: faker.phone.number({ unique: true }),
-      DOB: faker.date.birthdate({ min: 25, max: 70, mode: 'age' }),
-      Email: faker.internet.email({ firstName, lastName }),
-      Gender: gender,
-      AdhaarCardNumber: `${faker.number.int({ min: 100000000000, max: 999999999999 })}`,
-      FrontSideAdhaarImage: faker.image.url(),
-      BackSideAdhaarImage: faker.image.url(),
-      PanNumber: `${faker.string.alpha(5).toUpperCase()}${faker.number.int({ min: 1000, max: 9999 })}${faker.string.alpha(1).toUpperCase()}`,
-      PanImage: faker.image.url(),
-      LastLoggedIn: faker.date.recent(),
-      CreatedDate: faker.date.past()
-    };
-  });
+//     return {
+//       Name: fullName,
+//       Password: faker.internet.password(),
+//       MobileNumber: faker.phone.number({ unique: true }),
+//       DOB: faker.date.birthdate({ min: 25, max: 70, mode: 'age' }),
+//       Email: faker.internet.email({ firstName, lastName }),
+//       Gender: gender,
+//       AdhaarCardNumber: `${faker.number.int({ min: 100000000000, max: 999999999999 })}`,
+//       FrontSideAdhaarImage: faker.image.url(),
+//       BackSideAdhaarImage: faker.image.url(),
+//       PanNumber: `${faker.string.alpha(5).toUpperCase()}${faker.number.int({ min: 1000, max: 9999 })}${faker.string.alpha(1).toUpperCase()}`,
+//       PanImage: faker.image.url(),
+//       LastLoggedIn: faker.date.recent(),
+//       CreatedDate: faker.date.past()
+//     };
+//   });
 
-  for (const owner of ownerData) {
-    try {
-      await prisma.owner.create({
-        data: owner
-      });
-    } catch (error) {
-      console.error(`Failed to create owner: ${error.message}`);
-    }
-  }
+//   for (const owner of ownerData) {
+//     try {
+//       await prisma.owner.create({
+//         data: owner
+//       });
+//     } catch (error) {
+//       console.error(`Failed to create owner: ${error.message}`);
+//     }
+//   }
   
-  // Create owner wallets
-  const owners = await prisma.owner.findMany({
-    select: { Id: true }
-  });
+//   // Create owner wallets
+//   const owners = await prisma.owner.findMany({
+//     select: { Id: true }
+//   });
   
-  const ownerWallets = owners.map(owner => ({
-    OwnerId: owner.Id,
-    Amount: faker.number.int({ min: 10000, max: 50000 }),
-    LastUpdated: faker.date.recent()
-  }));
+//   const ownerWallets = owners.map(owner => ({
+//     OwnerId: owner.Id,
+//     Amount: faker.number.int({ min: 10000, max: 50000 }),
+//     LastUpdated: faker.date.recent()
+//   }));
   
-  await prisma.ownerWallet.createMany({
-    data: ownerWallets,
-    skipDuplicates: true,
-  });
-}
+//   await prisma.ownerWallet.createMany({
+//     data: ownerWallets,
+//     skipDuplicates: true,
+//   });
+// }
 
-async function createSampleVehicles() {
-  const vehicleCategories = ['Sedan', 'SUV', 'Hatchback', 'Luxury', 'Mini'];
+// async function createSampleVehicles() {
+//   const vehicleCategories = ['Sedan', 'SUV', 'Hatchback', 'Luxury', 'Mini'];
   
-  const vehicleData = Array(15).fill(null).map(() => ({
-    Model: faker.vehicle.model(),
-    Year: faker.date.past({ years: 10 }).getFullYear().toString(),
-    Category: faker.helpers.arrayElement(vehicleCategories),
-    VehicleImage: faker.image.url(),
-    VehicleInsuranceImage: faker.image.url(),
-    PermitImage: faker.image.url(),
-    VehicleNumber: `${faker.string.alpha(2).toUpperCase()}-${faker.number.int({ min: 10, max: 99 })}-${faker.string.alpha(2).toUpperCase()}-${faker.number.int({ min: 1000, max: 9999 })}`
-  }));
+//   const vehicleData = Array(15).fill(null).map(() => ({
+//     Model: faker.vehicle.model(),
+//     Year: faker.date.past({ years: 10 }).getFullYear().toString(),
+//     Category: faker.helpers.arrayElement(vehicleCategories),
+//     VehicleImage: faker.image.url(),
+//     VehicleInsuranceImage: faker.image.url(),
+//     PermitImage: faker.image.url(),
+//     VehicleNumber: `${faker.string.alpha(2).toUpperCase()}-${faker.number.int({ min: 10, max: 99 })}-${faker.string.alpha(2).toUpperCase()}-${faker.number.int({ min: 1000, max: 9999 })}`
+//   }));
 
-  await prisma.vehicle.createMany({
-    data: vehicleData,
-    skipDuplicates: true,
-  });
-}
+//   await prisma.vehicle.createMany({
+//     data: vehicleData,
+//     skipDuplicates: true,
+//   });
+// }
 
-async function createDriverVehicleRelationships() {
-  const drivers = await prisma.driver.findMany({
-    select: { Id: true }
-  });
+// async function createDriverVehicleRelationships() {
+//   const drivers = await prisma.driver.findMany({
+//     select: { Id: true }
+//   });
   
-  const vehicles = await prisma.vehicle.findMany({
-    select: { Id: true }
-  });
+//   const vehicles = await prisma.vehicle.findMany({
+//     select: { Id: true }
+//   });
   
-  const driverVehicleData = [];
+//   const driverVehicleData = [];
   
-  // Assign 1-2 vehicles to each driver
-  for (const driver of drivers) {
-    const vehicleCount = faker.number.int({ min: 1, max: 2 });
-    const selectedVehicles = faker.helpers.arrayElements(vehicles, vehicleCount);
+//   // Assign 1-2 vehicles to each driver
+//   for (const driver of drivers) {
+//     const vehicleCount = faker.number.int({ min: 1, max: 2 });
+//     const selectedVehicles = faker.helpers.arrayElements(vehicles, vehicleCount);
     
-    for (const vehicle of selectedVehicles) {
-      driverVehicleData.push({
-        DriverId: driver.Id,
-        VehicleId: vehicle.Id
-      });
-    }
-  }
+//     for (const vehicle of selectedVehicles) {
+//       driverVehicleData.push({
+//         DriverId: driver.Id,
+//         VehicleId: vehicle.Id
+//       });
+//     }
+//   }
   
-  // Skip any duplicates that might occur
-  await prisma.driverVehicle.createMany({
-    data: driverVehicleData,
-    skipDuplicates: true,
-  });
-}
+//   // Skip any duplicates that might occur
+//   await prisma.driverVehicle.createMany({
+//     data: driverVehicleData,
+//     skipDuplicates: true,
+//   });
+// }
 
-async function createOwnerVehicleRelationships() {
-  const owners = await prisma.owner.findMany({
-    select: { Id: true }
-  });
+// async function createOwnerVehicleRelationships() {
+//   const owners = await prisma.owner.findMany({
+//     select: { Id: true }
+//   });
   
-  const vehicles = await prisma.vehicle.findMany({
-    select: { Id: true }
-  });
+//   const vehicles = await prisma.vehicle.findMany({
+//     select: { Id: true }
+//   });
   
-  const ownerVehicleData = [];
+//   const ownerVehicleData = [];
   
-  // Assign 2-5 vehicles to each owner
-  for (const owner of owners) {
-    const vehicleCount = faker.number.int({ min: 2, max: 5 });
-    const selectedVehicles = faker.helpers.arrayElements(vehicles, vehicleCount);
+//   // Assign 2-5 vehicles to each owner
+//   for (const owner of owners) {
+//     const vehicleCount = faker.number.int({ min: 2, max: 5 });
+//     const selectedVehicles = faker.helpers.arrayElements(vehicles, vehicleCount);
     
-    for (const vehicle of selectedVehicles) {
-      ownerVehicleData.push({
-        OwnerId: owner.Id,
-        VehicleId: vehicle.Id
-      });
-    }
-  }
+//     for (const vehicle of selectedVehicles) {
+//       ownerVehicleData.push({
+//         OwnerId: owner.Id,
+//         VehicleId: vehicle.Id
+//       });
+//     }
+//   }
   
-  // Skip any duplicates that might occur
-  await prisma.ownerVehicle.createMany({
-    data: ownerVehicleData,
-    skipDuplicates: true,
-  });
-}
+//   // Skip any duplicates that might occur
+//   await prisma.ownerVehicle.createMany({
+//     data: ownerVehicleData,
+//     skipDuplicates: true,
+//   });
+// }
 
-async function createOwnerDriverRelationships() {
-  const owners = await prisma.owner.findMany({
-    select: { Id: true }
-  });
+// async function createOwnerDriverRelationships() {
+//   const owners = await prisma.owner.findMany({
+//     select: { Id: true }
+//   });
   
-  const drivers = await prisma.driver.findMany({
-    select: { Id: true }
-  });
+//   const drivers = await prisma.driver.findMany({
+//     select: { Id: true }
+//   });
   
-  const ownerDriverData = [];
+//   const ownerDriverData = [];
   
-  // Assign 1-3 drivers to each owner
-  for (const owner of owners) {
-    const driverCount = faker.number.int({ min: 1, max: 3 });
-    const selectedDrivers = faker.helpers.arrayElements(drivers, driverCount);
+//   // Assign 1-3 drivers to each owner
+//   for (const owner of owners) {
+//     const driverCount = faker.number.int({ min: 1, max: 3 });
+//     const selectedDrivers = faker.helpers.arrayElements(drivers, driverCount);
     
-    for (const driver of selectedDrivers) {
-      ownerDriverData.push({
-        OwnerId: owner.Id,
-        DriverId: driver.Id
-      });
-    }
-  }
+//     for (const driver of selectedDrivers) {
+//       ownerDriverData.push({
+//         OwnerId: owner.Id,
+//         DriverId: driver.Id
+//       });
+//     }
+//   }
   
-  // Skip any duplicates that might occur
-  await prisma.ownerDriver.createMany({
-    data: ownerDriverData,
-    skipDuplicates: true,
-  });
-}
+//   // Skip any duplicates that might occur
+//   await prisma.ownerDriver.createMany({
+//     data: ownerDriverData,
+//     skipDuplicates: true,
+//   });
+// }
 
-createSampleUsers()
+main()
   .catch((e) => {
     console.error(e);
     process.exit(1);

@@ -21,8 +21,11 @@ enum Gender{
 
 model User{
   Id                 Int   @default(autoincrement()) @id
-  MobileNumber       String
+  MobileNumber       String @unique
   Name               String
+  Password           String
+  DOB                DateTime?
+  Email              String?  
   LastLoggedIn       DateTime  @default(now())
   CreatedDate        DateTime  @default(now())
   Gender             Gender

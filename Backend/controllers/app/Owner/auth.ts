@@ -105,7 +105,7 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
       })
     }
   
-    const userData = await prisma.user.findFirst({
+    const userData = await prisma.owner.findFirst({
       where:{
         MobileNumber:parsedBody.data.mobileNumber
       }
@@ -118,7 +118,7 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
     }
     const encryptedPassword = await bcrypt.hash(parsedBody.data?.password as string,2);
     
-    const user = await prisma.owner.create({
+    const owner = await prisma.owner.create({
       data:{
         Name: parsedBody.data.name as string,
         MobileNumber: parsedBody.data.mobileNumber,
@@ -133,7 +133,7 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
     })
   
     console.log("secret",process.env.JWT_SECRET_OWNER);
-    const token = jwt.sign(user,process.env.JWT_SECRET_OWNER as string);
+    const token = jwt.sign(owner,process.env.JWT_SECRET_OWNER as string);
   
     res.status(200).json({
       message : "User Successfully Signed Up",
@@ -306,7 +306,8 @@ export const uploadDocument = async (req:Request, res:Response):Promise<any>=>{
          },
          data:{
            AdhaarCardNumber: parsedBody.data.AadharNumber as string,
-           BackSideAdhaarImage: aadharFrontName,
+           BackSideAdhaarImage: aadharBackName,
+           FrontSideAdhaarImage: aadharFrontName,
            PanImage: panName,
            PanNumber: parsedBody.data.PanNumber
          }
@@ -328,9 +329,6 @@ export const uploadDocument = async (req:Request, res:Response):Promise<any>=>{
  
 }
 
-export const signup = async (req:Request, res:Response):Promise<any> =>{
-  const parsedBody = signupSchema.safeParse(req.body)
-}
 export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
   const { otp, mobile_number } = req.body;
 
@@ -453,9 +451,6 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
 }
 // Declaring the handleSignup function as a const
 export const register = async (req: Request, res: Response): Promise<any> => {
-  
-
-
   try {
     // Validate the incoming data with Zod
     console.log(req.file);
