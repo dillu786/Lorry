@@ -9,8 +9,9 @@ const prisma = new PrismaClient();
 export const newBookings = async (req:Request, res: Response):Promise<any> => {
 try{
 
-    const page = parseInt(req.query.page as string);
-    const limit = parseInt(req.query.limit as string);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit as string) || 10); // cap limit at 100
+    
     const newBookings = await prisma.bookings.findMany({
         where:{
             Status: "Pending"
@@ -18,8 +19,8 @@ try{
         orderBy: {
             UpdatedDateTime: 'desc'
         },
-        skip: (page - (page-1)) * limit,
-        take: (limit)
+        skip: (page-1)* limit,
+        take: limit
     });
      
     res.status(200).json(responseObj(true,newBookings,"Succefully Fetched"));
