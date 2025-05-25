@@ -155,3 +155,30 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
         res.status(500).json(responseObj(false,null,"Something went wrong"));
     }
 }
+
+export const getCustomerDetails = async (req:Request, res: Response): Promise<any>=>{
+
+    const customerId = req.user.Id;
+
+    try{
+
+        const customerDetails = await prisma.user.findFirst({
+            where:{
+                Id: customerId 
+            },
+            select:{
+                Name:true,
+                MobileNumber:true,
+                DOB:true,
+                Gender:true
+            }
+        });
+
+        res.status(200).json(responseObj(true,customerDetails,"Successfully fetched"));
+    }
+
+    catch(error:any){
+        res.status(500).json(responseObj(false,null,"error:"+error));
+    }
+
+}
