@@ -8,7 +8,7 @@ export const bookRideSchema = z.object({
     Fare: z.string(),
     PaymentMode: z.enum(["CASH", "ONLINE"]),
     StartTime: z.string().datetime(),
-    EndTime: z.string().datetime()
+    EndTime: z.string().datetime().optional()
 })
 
 export const negotiateFareSchema = z.object({
