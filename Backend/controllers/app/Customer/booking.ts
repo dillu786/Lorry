@@ -1,8 +1,10 @@
 import express from "express"
 import type { Request,Response } from "express";
-import { Prisma, PrismaClient } from "@prisma/client"
+import { PaymentMode, Prisma, PrismaClient } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Customer/types";
+import { notifyNearbyDrivers } from "../../..";
+import type { RideRequest } from "../../../types/Common/types";
 const prisma = new PrismaClient();
 
 
@@ -31,14 +33,35 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
                 Product: parsedBody.data?.Product as string,
                 DropLocation: parsedBody.data?.DropLocation as string,
                 PickUpLocation: parsedBody.data?.PickUpLocation as string,
+                DropLangitude: parseFloat(parsedBody.data?.DropLongitude as string),
+                DropLatitude: parseFloat(parsedBody.data?.DropLatitude as string),
+                PickUpLatitude: parseFloat(parsedBody.data?.PickupLatitude as string),
+                PickUpLongitude: parseFloat(parsedBody.data?.PickupLogitude as string),
                 Distance: parsedBody.data?.Distance as string,
                 Fare: parsedBody.data?.Fare as string,
                 PaymentMode: parsedBody.data?.PaymentMode as any,
-                StartTime: parsedBody.data?.StartTime as string,
-              
+                StartTime: parsedBody.data?.StartTime as string,             
             }
         })
 
+        let rideRequest: RideRequest;
+        rideRequest={
+            Name: user.Name,
+            pickupLat: booking.PickUpLatitude,
+            pickupLng: booking.PickUpLongitude,
+            Distance: booking.Distance,
+            Fare: booking.Fare,
+            PickUpLocation: booking.PickUpLocation,
+            DropLocation: booking.DropLocation,
+            DropLng: booking.DropLangitude,
+            DropLat: booking.DropLatitude,
+            Product: booking.Product,
+            StartTime: booking.StartTime.toUTCString as unknown as string,
+            PaymentModde: booking.PaymentMode
+
+
+        }
+        notifyNearbyDrivers(rideRequest)
         res.status(200).json(responseObj(true,booking,"Booking Successfully Created"));
 
     }

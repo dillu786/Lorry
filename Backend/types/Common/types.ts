@@ -12,3 +12,27 @@ export const verifyOtpSchema = z.object({
   Otp: z.string()
 })
 
+// types.ts
+export interface DriverLocation {
+  lat: number;
+  lng: number;
+}
+
+export interface RideRequest {
+  Name: string;
+  pickupLat: number;
+  pickupLng: number;
+  DropLat: number;
+  DropLng: number;
+  PickUpLocation: string;
+  DropLocation: string;
+  Distance: string;
+  Fare: string;
+  StartTime: string;
+  PaymentModde: string;
+  Product: string;
+  Vehicle?: string;
+  
+}
+
+

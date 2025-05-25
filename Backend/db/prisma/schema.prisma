@@ -182,6 +182,10 @@ enum BookingStatus{
 model Bookings {
   Id                          Int @default(autoincrement()) @id
   UserId                      Int
+  PickUpLatitude              Float @default(0)
+  PickUpLongitude             Float @default(0)
+  DropLatitude                Float @default(0)
+  DropLangitude               Float @default(0)
   PickUpLocation              String 
   DropLocation                String
   Product                     String
