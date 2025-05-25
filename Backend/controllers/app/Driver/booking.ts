@@ -51,7 +51,8 @@ export const completedRides = async (req:Request,res:Response):Promise<any> =>{
 
     try{
 
-        const driverId = req.query.driverId as string;
+        //@ts-ignore
+        const driverId = req.user.Id as string;
     
         if(driverId == ""|| driverId == null || driverId == undefined){
             res.status(411).json(responseObj(false,null,"Incorrect Input"));
@@ -126,6 +127,7 @@ export const startTrip = async (req:Request, res: Response):Promise<any> =>{
 export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
 
     try{
+        console.log("req.body",req.body);
 
         const parsedBody = acceptRideSchema.safeParse(req.body);
     
@@ -149,10 +151,10 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
                 Id: parsedBody.data?.BookingId
             },
             data:{
-                DriverId: parsedBody.data?.DriverId,
-                VehicleId: parsedBody.data?.VehicleId,
+                DriverId: parseInt((parsedBody.data?.DriverId as unknown as string)),
+                VehicleId: parseInt((parsedBody.data?.VehicleId as unknown as string)),
                 Status: "Confirmed",
-                UpdatedDateTime: Date.now() as any
+                UpdatedDateTime: new Date().toISOString()
             }
         })
     
@@ -160,7 +162,7 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
     }
 
     catch(error: any){
-        res.status(500).json(responseObj(false,null,"Something went wrong"));
+        res.status(500).json(responseObj(false,null,"Something went wrong"+error));
     }
 }
 
