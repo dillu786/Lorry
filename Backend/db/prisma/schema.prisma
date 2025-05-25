@@ -26,6 +26,8 @@ model User{
   Password           String
   DOB                DateTime?
   Email              String?  
+  Latitude           Float?
+  Longitude          Float?
   LastLoggedIn       DateTime  @default(now())
   CreatedDate        DateTime  @default(now())
   Gender             Gender
@@ -75,6 +77,8 @@ model Driver {
   LastLoggedIn           DateTime  @default(now())
   CreatedDate            DateTime  @default(now())
   IsOnline               Boolean   @default(false)
+  Latitude               Float?
+  Longitude              Float?
   // Relationships
   DriverVehicles         DriverVehicle[]
   DriverOwner            OwnerDriver[]

@@ -10,8 +10,8 @@ router.get("/historicalRides",Drivermiddleware,getUserBookingHistory);
 router.get("/onGoingRide",Drivermiddleware,onGoingRide);
 router.get("/completedRides",Drivermiddleware,completedRides);
 router.get("/startTrip",Drivermiddleware,startTrip);
-router.get("/makeDriverOnline",Drivermiddleware,makeDriverOnline);
-router.get("/makeDriverOffline",Drivermiddleware,makeDriverOffline);
+router.patch("/makeDriverOnline",Drivermiddleware,makeDriverOnline);
+router.patch("/makeDriverOffline",Drivermiddleware,makeDriverOffline);
 router.post("/negotiateFare",Drivermiddleware,negotiateFare);
 router.get("/newBookings",Drivermiddleware,newBookings);
 

@@ -36,7 +36,6 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
                 PaymentMode: parsedBody.data?.PaymentMode as any,
                 StartTime: parsedBody.data?.StartTime as string,
               
-
             }
         })
 

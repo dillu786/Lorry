@@ -29,3 +29,8 @@ export const bookRideSchema = z.object({
     StartTime: z.string().datetime(),
     EndTime: z.string().datetime()
 })
+
+export const makeDriverOnlineSchema = z.object({
+    Latitude: z.string(),
+    Longitude: z.string()
+})

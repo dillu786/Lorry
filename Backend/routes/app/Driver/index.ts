@@ -5,6 +5,7 @@ import { responseObj } from "../../../utils/response";
 import { Drivermiddleware } from "../../../middlewares/middleware";
 import type{Request,Response} from "express"
 import { PrismaClient } from "@prisma/client";
+import { getDriverDetails } from "../../../controllers/app/Driver/booking";
 const prisma = new PrismaClient();
 const router = express.Router();
 const app = express();
@@ -29,5 +30,5 @@ router.get("/dashboard",Drivermiddleware,async (req:Request,res:Response):Promis
 })
 router.use("/booking",bookingRoutes);
 router.use("/auth",authRoutes);
-
+router.get("/driverDetails",Drivermiddleware,getDriverDetails);
 export default router;

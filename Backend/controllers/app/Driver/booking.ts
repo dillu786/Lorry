@@ -1,16 +1,25 @@
 import type { Request,Response } from "express"
 import { PrismaClient } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
-import { acceptRideSchema } from "../../../types/Driver/types";
+import { acceptRideSchema, makeDriverOnlineSchema } from "../../../types/Driver/types";
 import { negotiateFareSchema } from "../../../types/Driver/types";
+import { getObjectSignedUrl } from "../../../utils/s3utils";
+import { parse } from "path";
 const prisma = new PrismaClient();
 export const newBookings = async (req:Request, res: Response):Promise<any> => {
 try{
 
+    const page = parseInt(req.query.page as string);
+    const limit = parseInt(req.query.limit as string);
     const newBookings = await prisma.bookings.findMany({
         where:{
             Status: "Pending"
-        }
+        },
+        orderBy: {
+            UpdatedDateTime: 'desc'
+        },
+        skip: (page - (page-1)) * limit,
+        take: (limit)
     });
      
     res.status(200).json(responseObj(true,newBookings,"Succefully Fetched"));
@@ -166,16 +175,62 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
     }
 }
 
+export const getDriverDetails = async (req:Request, res:Response): Promise<any> =>{
+    try{
+
+        const driverId = req.user.Id;
+        let driver = await prisma.driver.findFirst({
+            where:{
+                Id: parseInt(driverId as unknown as string)
+            },
+            select:{
+                Name:true,
+                MobileNumber: true,
+                Id:true,
+                DOB: true,
+                DrivingLicenceNumber:true,
+                DriverImage:true,
+                DrivingLicenceBackImage: true,
+                DrivingLicenceFrontImage: true
+            }
+        });
+
+        if(!driver){
+            res.status(400).json(responseObj(false,null,"Driver not found"));
+        }
+
+        if(driver){
+            driver.DriverImage = await getObjectSignedUrl(driver?.DriverImage as string);
+            driver.DrivingLicenceFrontImage = await getObjectSignedUrl(driver?.DrivingLicenceFrontImage as string);
+            driver.DrivingLicenceBackImage = await getObjectSignedUrl(driver?.DrivingLicenceBackImage as string);
+            res.status(200).json(responseObj(true,driver,"successfully fetched"));
+        }
+     
+    }
+    catch(error:any){
+        res.status(500).json(responseObj(false,null,error as any))
+    }
+
+    
+}
+
 export const makeDriverOnline = async (req:Request, res:Response): Promise<any> =>{
     try{
         //@ts-ignore
         const driverId = req.user.Id as string;
+        const parsedBody = makeDriverOnlineSchema.safeParse(req.body);
+        if(!parsedBody.success){
+            res.status(411).json(responseObj(false,null,parsedBody.error as any))
+        }
+        console.log("parsedBody"+JSON.stringify(parsedBody));
         await prisma.driver.update({
             where:{
-                Id: parseInt(driverId)
+                Id: parseInt(driverId),           
             },
             data:{
-                IsOnline: true
+                IsOnline: true,
+                Latitude: parseFloat(parsedBody.data?.Latitude as string),
+                Longitude: parseFloat(parsedBody.data?.Longitude as string)
             }
         })
         res.status(200).json(responseObj(true,null,""));
