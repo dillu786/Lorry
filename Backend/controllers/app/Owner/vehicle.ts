@@ -9,7 +9,9 @@ import sharp from 'sharp';
 import {PrismaClient} from "@prisma/client";
 import { generateFileName } from '../../../utils/s3utils';
 import { responseObj } from '../../../utils/response';
+import { VehicleTypes } from '../../../types/Common/types';
 const prisma= new PrismaClient();
+
 const app = express();
 app.use(express.json());
 
@@ -266,3 +268,7 @@ export const updateVehicleByVehicleId = async (req: Request, res: Response): Pro
     res.status(500).json(responseObj(false, null, "Internal Server Error"));
   }
 };
+
+export const getVehicleTypes = async(req:Request, res: Response): Promise<any> =>{
+  return res.status(200).json({ vehicleTypes: VehicleTypes })
+}

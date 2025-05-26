@@ -92,11 +92,11 @@ model Vehicle {
   Model                 String
   Year                  String
   VehicleNumber         String
-  Category              String
+  Category              String?
   VehicleImage          String?
   VehicleInsuranceImage String?
   PermitImage           String?
-
+  VehicleType           VehicleType?
   // Relationships
   DriverVehicles        DriverVehicle[]
   OwnerVehicles         OwnerVehicle[]
@@ -115,7 +115,6 @@ model DriverVehicle {
   Id        Int     @default(autoincrement()) @id
   DriverId  Int
   VehicleId Int
-
   Driver    Driver  @relation(fields: [DriverId], references: [Id])
   Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id])
 
@@ -192,6 +191,7 @@ model Bookings {
   Distance                    String
   DriverId                    Int?
   VehicleId                   Int?
+  VehicleType                 VehicleType @default(MINI_TRUCK)
   Fare                        String
   Status                      BookingStatus
   PaymentMode                 PaymentMode
@@ -203,6 +203,29 @@ model Bookings {
   Driver                      Driver? @relation(fields: [DriverId],references: [Id])
   Vehicle                     Vehicle? @relation(fields: [VehicleId],references: [Id]) 
   FareNegotiations            FareNegotiation[]
+}
+model Fare {
+  Id              String   @id @default(uuid())
+  VehicleType     VehicleType  // Enum: bike, truck, etc.
+  BaseFare        Float    // Minimum fare
+  CostPerKm       Float    // Distance-based cost
+  CostPerMinute   Float    // Time-based cost
+  MinimumFare     Float    // Minimum charge regardless of distance/time
+  SurgeMultiplier Float    @default(1.0) // Multiplier during high demand
+  Currency        String   @default("INR")
+  City            String?  // Fare rules can be city-specific
+  IsActive        Boolean  @default(true)
+  CreatedAt       DateTime @default(now())
+  UpdatedAt       DateTime @updatedAt
+}
+
+enum VehicleType {
+  CARGO_CAR
+  MINI_TRUCK
+  PICKUP_TRUCK
+  TANK_CAR
+  LCV
+  HCV
 }
 
 model FareNegotiation {

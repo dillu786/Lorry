@@ -35,4 +35,13 @@ export interface RideRequest {
   
 }
 
+export const VehicleTypes = [
+  "CARGO_CAR",
+  "MINI_TRUCK",
+  "PICKUP_TRUCK",
+  "TANK_CAR",
+  "LCV",
+  "HCV"
+] as const;
+
 

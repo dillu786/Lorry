@@ -1,6 +1,6 @@
 import express from "express"
 import type { Request,Response } from "express";
-import { PaymentMode, Prisma, PrismaClient } from "@prisma/client"
+import { PaymentMode, Prisma, PrismaClient, VehicleType } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Customer/types";
 import { notifyNearbyDrivers } from "../../..";
@@ -33,10 +33,11 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
                 Product: parsedBody.data?.Product as string,
                 DropLocation: parsedBody.data?.DropLocation as string,
                 PickUpLocation: parsedBody.data?.PickUpLocation as string,
+                VehicleType: parsedBody.data?.VehicleType as VehicleType,
                 DropLangitude: parseFloat(parsedBody.data?.DropLongitude as string),
                 DropLatitude: parseFloat(parsedBody.data?.DropLatitude as string),
                 PickUpLatitude: parseFloat(parsedBody.data?.PickupLatitude as string),
-                PickUpLongitude: parseFloat(parsedBody.data?.PickupLogitude as string),
+                PickUpLongitude: parseFloat(parsedBody.data?.PickupLongitude as string),
                 Distance: parsedBody.data?.Distance as string,
                 Fare: parsedBody.data?.Fare as string,
                 PaymentMode: parsedBody.data?.PaymentMode as any,
@@ -58,8 +59,6 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
             Product: booking.Product,
             StartTime: booking.StartTime.toUTCString as unknown as string,
             PaymentModde: booking.PaymentMode
-
-
         }
         notifyNearbyDrivers(rideRequest)
         res.status(200).json(responseObj(true,booking,"Booking Successfully Created"));
@@ -204,4 +203,11 @@ export const getCustomerDetails = async (req:Request, res: Response): Promise<an
         res.status(500).json(responseObj(false,null,"error:"+error));
     }
 
+}
+
+export const getFare = async (req:Request, res:Response) : Promise<any> =>{
+    
+   const fare= await prisma.fare.findMany({});
+
+   return res.status(200).json(responseObj(true,fare,"Successfully fetched"));
 }
