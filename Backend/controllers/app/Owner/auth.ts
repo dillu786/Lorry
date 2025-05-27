@@ -492,7 +492,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       DOB: moment(parsedBody.data.Dob, "DD-MM-YYYY").toDate(),
       Email: parsedBody.data.Email,
       Gender: parsedBody.data.Gender,
-      OwnerImage: ownerImageName 
+      OwnerImage: ownerImageName ,
+      AdhaarCardNumber: parsedBody.data.AdhaarCardNumber
      }
     });
 

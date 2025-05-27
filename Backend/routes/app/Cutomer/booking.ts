@@ -12,5 +12,5 @@ router.post("/bookRide",CustomerMiddleware,bookRide);
 router.get("/getFare",CustomerMiddleware,getFare);
 
 
-
+            
 export default router;
