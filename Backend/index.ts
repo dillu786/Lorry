@@ -67,6 +67,7 @@ const io = new Server(server, {
     origin: '*',
     methods: ["GET", "POST", "PATCH", "PUT", "OPTIONS", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
   },
 });
 
@@ -78,6 +79,8 @@ io.on("connection", (socket:any) => {
   socket.on("update_location", (data: { lat: number; lng: number }) => {
     // data = { lat: number, lng: number }
     drivers.set(socket.id, data);
+    console.log("receivedd drivers location");
+    console.log(drivers);
   });
 
   socket.on("disconnect", () => {
@@ -87,7 +90,7 @@ io.on("connection", (socket:any) => {
 });
 
 // Start the server
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
 

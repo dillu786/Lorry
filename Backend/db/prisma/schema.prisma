@@ -25,7 +25,8 @@ model User{
   Name               String
   Password           String
   DOB                DateTime?
-  Email              String?  
+  Email              String?
+  IsActive           Boolean @default(true)  
   Latitude           Float?
   Longitude          Float?
   LastLoggedIn       DateTime  @default(now())
@@ -42,6 +43,7 @@ model Owner {
   DOB                   DateTime?
   Email                 String?   @unique
   Gender                Gender
+  IsActive              Boolean  @default(true)
   AdhaarCardNumber      String?   @unique
   FrontSideAdhaarImage  String?
   BackSideAdhaarImage   String?
@@ -64,6 +66,7 @@ model Driver {
   Password               String?
   MobileNumber           String    @unique
   DOB                    DateTime?
+  IsActive               Boolean   @default(true)
   DrivingLicenceNumber   String
   DrivingLicenceFrontImage String
   DrivingLicenceBackImage  String
