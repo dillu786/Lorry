@@ -208,8 +208,14 @@ export const getDriverDetails = async (req:Request, res:Response): Promise<any> 
                 DrivingLicenceNumber:true,
                 DriverImage:true,
                 DrivingLicenceBackImage: true,
-                DrivingLicenceFrontImage: true
-            }
+                DrivingLicenceFrontImage: true,
+                DriverOwner:{
+                    select:{
+                        OwnerId:true
+                    }
+                }
+            },
+          
         });
 
         if(!driver){
