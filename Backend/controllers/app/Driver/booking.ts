@@ -154,7 +154,6 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
 
     try{
         console.log("req.body",req.body);
-
         const parsedBody = acceptRideSchema.safeParse(req.body);
     
         if(!parsedBody.success){
@@ -169,10 +168,10 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
     
         if(!booking){
             res.status(411).json(responseObj(false,null,"BookingId does not exist"));
-    
+            
         }
     
-        await prisma.bookings.update({
+       const acceptedBooking = await prisma.bookings.update({
             where:{
                 Id: parsedBody.data?.BookingId
             },
@@ -180,11 +179,12 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
                 DriverId: parseInt((parsedBody.data?.DriverId as unknown as string)),
                 VehicleId: parseInt((parsedBody.data?.VehicleId as unknown as string)),
                 Status: "Confirmed",
+                Fare: parsedBody.data?.Fare ,         
                 UpdatedDateTime: new Date().toISOString()
             }
         })
     
-        res.status(200).json(responseObj(true,null,""));
+        res.status(200).json(responseObj(true,acceptedBooking,""));
     }
 
     catch(error: any){
@@ -293,20 +293,20 @@ export const negotiateFare = async (req:Request, res:Response): Promise<any> =>{
             res.status(411).json(responseObj(false,null,"BookingId does not exist"));
         }               
 
-        await prisma.fareNegotiation.create({
-            data:{
-                BookingId: parsedBody.data?.BookingId as number,
-                DriverId: parsedBody.data?.DriverId as number,
-                OwnerId: parsedBody.data?.OwnerId as number,
-                NegotiatedFare: parsedBody.data?.NegotiatedFare as string,
-                NegotiatedTime: Date.now() as any
-            }           
+            await prisma.fareNegotiation.create({
+                data:{
+                    BookingId: parsedBody.data?.BookingId as number,
+                    DriverId: parsedBody.data?.DriverId as number,
+                    OwnerId: parsedBody.data?.OwnerId as number,
+                    NegotiatedFare: parsedBody.data?.NegotiatedFare as string,
+                    NegotiatedTime: new Date(Date.now())
+                }           
         })
 
         res.status(200).json(responseObj(true,null,""));
-    }
+    }   
     catch(error:any){
-        res.status(500).json(responseObj(false,null,"Something went wrong"));
+        res.status(500).json(responseObj(false,null,"Something went wrong"+error));
     }
 }
 
