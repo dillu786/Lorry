@@ -115,60 +115,48 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
     
 }
 
-export const assignVehicleToDriver = async (req:Request, res:Response): Promise<any>=>{
-    try{
-         const parsedBody = assignVehicleToDriverSchema.safeParse(req.body);
-         if(!parsedBody.success){
-            return res.status(411).json(responseObj(false,null,"Incorrect Input"));
-         }
-            const vehicleAlreadyAssignedToDriver = await prisma.driverVehicle.findMany({
-                where:{
-                    DriverId: parsedBody.data.driverId,
-                    VehicleId: parsedBody.data.vehicleId
-                }
-               
-             })
-
-             const vehicleExists = await prisma.vehicle.findFirst({
-                where:{
-                    Id: parsedBody.data.vehicleId
-                }
-             });
-
-             if(!vehicleExists){
-                return res.status(400).json(responseObj(false,"vehicleId does not exist",""));
-             }
-
-             const driverExists = await prisma.driver.findFirst({
-                where:{
-                    Id: parsedBody.data.driverId
-                }
-             })
-
-             if(!driverExists){
-                return res.status(400).json(responseObj(false,"driverId does not exist",""));
-             }
-
-             if(vehicleAlreadyAssignedToDriver.length>0){
-               return res.status(411).json({
-                    message: "Vehicle Already assigned to Driver"
-                })
-             }
-             await prisma.driverVehicle.create({
-                data:{
-                    DriverId: parsedBody.data?.driverId,
-                    VehicleId: parsedBody.data?.vehicleId
-                }
-             });
-
-        res.status(200).json(responseObj(true,null,"Vehicle Successfully assigned to Driver"));
-         
-
+export const assignVehicleToDriver = async (req: Request, res: Response): Promise<any> => {
+    try {
+      const parsedBody = assignVehicleToDriverSchema.safeParse(req.body);
+      if (!parsedBody.success) {
+        return res.status(411).json(responseObj(false, null, "Incorrect Input"));
+      }
+  
+      const { driverId, vehicleId } = parsedBody.data;
+  
+      const [vehicleExists, driverExists] = await Promise.all([
+        prisma.vehicle.findFirst({ where: { Id: vehicleId } }),
+        prisma.driver.findFirst({ where: { Id: driverId } })
+      ]);
+  
+      if (!vehicleExists) {
+        return res.status(400).json(responseObj(false, null, "vehicleId does not exist"));
+      }
+  
+      if (!driverExists) {
+        return res.status(400).json(responseObj(false, null, "driverId does not exist"));
+      }
+  
+      await prisma.driverVehicle.upsert({
+        where: {
+          DriverId_VehicleId: {
+            DriverId: driverId,
+            VehicleId: vehicleId
+          }
+        },
+        update: {}, // Nothing to update if already exists
+        create: {
+          DriverId: driverId,
+          VehicleId: vehicleId
+        }
+      });
+  
+      return res.status(200).json(responseObj(true, null, "Vehicle successfully assigned to driver"));
+    } catch (error: any) {
+      return res.status(500).json(responseObj(false, null, `Something went wrong: ${error.message}`));
     }
-    catch(error:any){
-        res.status(500).json(responseObj(false,null,"Something went wrong")+error);
-    }
-}
+  };
+  
 
 export const getAllDriverByOwnerId = async (req:Request,res: Response):Promise<any>=>{
 
