@@ -40,7 +40,7 @@ export const notifyNearbyDrivers = ( ride: RideRequest) => {
   for (const [socketId, location] of connectedDrivers.entries()) {
     const distance = haversineDistance(ride.pickupLat, ride.pickupLng, location.lat, location.lng);
 
-    if (distance <= 20) {
+    if (distance <= 20 || true) {
       io.to(socketId).emit("new_ride_request", {
         ...ride,
         distance,

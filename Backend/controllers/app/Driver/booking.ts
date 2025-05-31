@@ -1,16 +1,25 @@
 import type { Request,Response } from "express"
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, type Bookings } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptRideSchema, makeDriverOnlineSchema } from "../../../types/Driver/types";
 import { negotiateFareSchema } from "../../../types/Driver/types";
 import { getObjectSignedUrl } from "../../../utils/s3utils";
 import { parse } from "path";
+import { haversineDistance } from "../../../utils/haversine";
 const prisma = new PrismaClient();
 export const newBookings = async (req:Request, res: Response):Promise<any> => {
 try{
 
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, parseInt(req.query.limit as string) || 10); // cap limit at 100
+    const driverLatitude = req.query.driverLatitude;
+    const driverLongitude = req.query.driverLongitude;  
+    if(!driverLatitude || !driverLongitude){
+
+        return res.status(400).json({
+            message : "Send Driver latitude and Longitude"
+        });
+    }
     
     const newBookings = await prisma.bookings.findMany({
         where:{
@@ -22,8 +31,15 @@ try{
         skip: (page-1)* limit,
         take: limit
     });
+    const response:Bookings[] = []
+    newBookings.forEach((booking)=>{
+        const distance = haversineDistance(Number(driverLatitude),Number(driverLongitude),booking.PickUpLatitude,booking.PickUpLongitude)
+        if(distance <= 20 ){
+            response.push(booking)
+        }
+    });
      
-    res.status(200).json(responseObj(true,newBookings,"Succefully Fetched"));
+    return res.status(200).json(responseObj(true,response,"Succefully Fetched"));
 
 }
 catch(error:any){
