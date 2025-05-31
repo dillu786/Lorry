@@ -213,6 +213,11 @@ export const getDriverDetails = async (req:Request, res:Response): Promise<any> 
                     select:{
                         OwnerId:true
                     }
+                },
+                DriverVehicles:{
+                    select:{
+                        VehicleId:true      
+                    }
                 }
             },
           
