@@ -58,10 +58,18 @@ export const cancelBooking = async (req: Request, res: Response): Promise<any>=>
         const bookingId = req.query.bookingId;
         const mobileNumber = req.user.MobileNumber;
         const user = req.user;
+        const booking = await prisma.bookings.findFirst({
+            where:{
+                Id: Number(bookingId)
+            }
+        })
+        if(!booking){   
+            return res.status(400).json(responseObj(false,null,"Booking not found"));
+        }
         await prisma.bookings.update({
             where:{
                 Id: Number(bookingId),
-                UserId: Number(user.Id)
+             
             },
             data:{
                 Status: "Cancelled"
