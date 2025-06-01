@@ -2,6 +2,10 @@ import { VehicleType } from "@prisma/client"
 import {z, type EnumValues} from "zod"
 import { vehicleSchema } from "../vehicletypes"
 
+export const    declineBookingSchema = z.object({
+    BookingId: z.number(),
+    DriverId: z.number()
+})
 export const bookRideSchema = z.object({
     PickUpLocation: z.string(),
     DropLocation: z.string(),

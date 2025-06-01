@@ -116,8 +116,8 @@ model OwnerDriver {
 
 model DriverVehicle {
   Id        Int     @default(autoincrement()) @id
-  DriverId  Int
-  VehicleId Int
+  DriverId  Int     
+  VehicleId Int     @unique
   Driver    Driver  @relation(fields: [DriverId], references: [Id])
   Vehicle   Vehicle @relation(fields: [VehicleId], references: [Id])
 
@@ -231,6 +231,12 @@ enum VehicleType {
   HCV
 }
 
+enum NegotiationStatus{
+  Pending
+  Accepted
+  Declined
+}
+
 model FareNegotiation {
   Id Int @default(autoincrement()) @id
   BookingId Int
@@ -239,6 +245,7 @@ model FareNegotiation {
   Driver Driver @relation(fields: [DriverId],references: [Id])
   OwnerId Int
   Owner Owner @relation(fields: [OwnerId],references: [Id])
+  Status NegotiationStatus @default(Pending)
   NegotiatedFare String
   NegotiatedTime DateTime @default(now())
   @@unique([BookingId, DriverId])
@@ -375,3 +382,4 @@ model PermissionAuditLog {
   @@map("permission_audit_logs")
 }
 
+  

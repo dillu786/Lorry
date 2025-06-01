@@ -1,6 +1,6 @@
 import express from "express"
 import { CustomerMiddleware } from "../../../middlewares/middleware";
-import { bookRide, getFare, getNegotiatedFares, getUserBookingHistory } from "../../../controllers/app/Customer/booking";
+import { bookRide, cancelBooking, currentBooking, declineBooking, getFare, getNegotiatedFares, getUserBookingHistory } from "../../../controllers/app/Customer/booking";
 import { sendOtp, verifyOTP } from "../../../controllers/app/Owner/auth";
 import { createAccount } from "../../../controllers/app/Customer/auth";
 
@@ -10,6 +10,9 @@ router.post("/BookingHistory",CustomerMiddleware,getUserBookingHistory);
 router.get("/getNegotiatedFares",CustomerMiddleware,getNegotiatedFares);
 router.post("/bookRide",CustomerMiddleware,bookRide);
 router.get("/getFare",CustomerMiddleware,getFare);
+router.get("/currentBooking",CustomerMiddleware,currentBooking);    
+router.post("/cancelBooking",CustomerMiddleware,cancelBooking);
+router.post("/declineBooking",CustomerMiddleware,declineBooking);
 
 
             

@@ -5,8 +5,116 @@ import { responseObj } from "../../../utils/response";
 import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Customer/types";
 import { notifyNearbyDrivers } from "../../..";
 import type { RideRequest } from "../../../types/Common/types";
+        import { declineBookingSchema } from "../../../types/Customer/types";
 const prisma = new PrismaClient();
 
+export const    declineBooking = async (req: Request, res: Response): Promise<any>=>{
+    try{
+        //@ts-ignore
+        const parsedBody = declineBookingSchema.safeParse(req.body);
+        if(!parsedBody.success){
+            return res.status(400).json(responseObj(false,null,"Invalid Input"));
+        }
+        const [booking,driver] = await Promise.all([
+            prisma.bookings.findFirst({
+                where:{
+                    Id: parsedBody.data.BookingId
+                }
+            }),
+            prisma.user.findFirst({
+                where:{
+                    Id: parsedBody.data.DriverId
+                }
+            })
+        ])
+        if(!booking){
+            return res.status(400).json(responseObj(false,null,"Booking not found"));
+        }
+        if(!driver){
+            return res.status(400).json(responseObj(false,null,"Driver not found"));
+        }
+        
+        await prisma.fareNegotiation.update({
+            where: {
+              BookingId_DriverId: {
+                BookingId: parsedBody.data.BookingId,
+                DriverId: parsedBody.data.DriverId // Or whatever identifies the current user
+              },
+            },
+            data: {
+              Status: "Declined", // Ensure this matches your enum exactly (case-sensitive!)
+            },
+          });
+          
+        res.status(200).json(responseObj(true,null,"Booking Declined Successfully"));
+    }
+    catch(error:any){
+        res.status(500).json(responseObj(false,null,"Something went wrong"+error));
+    }
+}
+export const cancelBooking = async (req: Request, res: Response): Promise<any>=>{
+    try{
+        //@ts-ignore
+        const bookingId = req.query.bookingId;
+        const mobileNumber = req.user.MobileNumber;
+        const user = req.user;
+        await prisma.bookings.update({
+            where:{
+                Id: Number(bookingId),
+                UserId: Number(user.Id)
+            },
+            data:{
+                Status: "Cancelled"
+            }
+        })
+        res.status(200).json(responseObj(true,null,"Booking Cancelled Successfully"));
+    }
+    catch(error:any){
+        res.status(500).json(responseObj(false,null,"Something went wrong"+error));
+    }
+}
+export const currentBooking = async (req: Request, res: Response): Promise<any>=>{
+    try{
+        //@ts-ignore
+        const mobileNumber = req.user.MobileNumber;
+        const user = await prisma.user.findFirst({ 
+            where:{
+                MobileNumber: mobileNumber
+            }
+        })
+
+        if(!user){
+            return res.status(400).json(responseObj(false,null,"User not found"));
+        }
+        
+        
+        const bookings = await prisma.bookings.findMany({
+            where:{
+                UserId: Number(user.Id),
+                Status: "Pending"
+            },
+        
+            include:{
+                Driver:{
+                    select:{
+                        Name:true
+    
+                    }
+                },
+                Vehicle:{
+                  select:{
+                    Model: true
+                  }
+                }
+            },
+        });
+
+        res.status(200).json(responseObj(true,bookings,"Bookings Successfully Fetched"));
+}
+catch(error: any){
+    res.status(500).json(responseObj(true,null,"Something went wrong"+error ));
+}
+}
 
 export const bookRide = async (req:Request, res:Response): Promise<any>=>{
         try{
