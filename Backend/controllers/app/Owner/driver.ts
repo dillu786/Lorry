@@ -156,7 +156,7 @@ export const assignVehicleToDriver = async (req: Request, res: Response): Promis
       return res.status(500).json(responseObj(false, null, `Something went wrong: ${error.message}`));
     }
   };
-  
+      
 
 export const getAllDriverByOwnerId = async (req:Request,res: Response):Promise<any>=>{
 

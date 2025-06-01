@@ -119,6 +119,7 @@ export const getUserBookingHistory = async (req:Request, res:Response): Promise<
 export const getNegotiatedFares = async (req:Request, res:Response): Promise<any> =>{
     try{
         //@ts-ignore
+        const bookingId = req.query.bookingId;
         const mobileNumber = req.user.MobileNumber;
         const user = await prisma.user.findFirst({
             where:{
@@ -132,10 +133,8 @@ export const getNegotiatedFares = async (req:Request, res:Response): Promise<any
 
         const negotiatedFares = await prisma.fareNegotiation.findMany({
             where:{
-               Booking:{
-                UserId: Number(user.Id)
-               }
-            },
+               BookingId: Number(bookingId)
+            },  
             include:{
                 Driver:true,                
                 Booking:true
