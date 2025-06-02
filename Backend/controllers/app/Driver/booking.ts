@@ -7,52 +7,54 @@ import { getObjectSignedUrl } from "../../../utils/s3utils";
 import { parse } from "path";
 import { haversineDistance } from "../../../utils/haversine";
 const prisma = new PrismaClient();
-export const newBookings = async (req:Request, res: Response):Promise<any> => {
-try{
-
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit as string) || 10); // cap limit at 100
-    const driverLatitude = req.query.driverLatitude;
-    const driverLongitude = req.query.driverLongitude;  
-    if(!driverLatitude || !driverLongitude){
-
-        return res.status(400).json({
-            message : "Send Driver latitude and Longitude"
-        });
+export const newBookings = async (req: Request, res: Response): Promise<any> => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, parseInt(req.query.limit as string) || 10);
+  
+      const driverLatitude = parseFloat(req.query.driverLatitude as string);
+      const driverLongitude = parseFloat(req.query.driverLongitude as string);
+  
+      if (isNaN(driverLatitude) || isNaN(driverLongitude)) {
+        return res.status(400).json({ message: "Send valid driver latitude and longitude" });
+      }
+  
+      const offset = (page - 1) * limit;
+  
+      const bookings = await prisma.bookings.findMany({
+        where: {
+          Status: 'Pending',
+          FareNegotiations: {
+            none: {} // Booking must not have any fare negotiation
+          }
+        },
+        // orderBy: { UpdatedDateTime: 'desc' },
+        // skip: (page - 1) * limit,
+        // take: limit
+      });
+      const filteredBookings = bookings.filter((booking) => {
+        const distance = haversineDistance(
+          driverLatitude,
+          driverLongitude,
+          booking.PickUpLatitude,
+          booking.PickUpLongitude
+        );
+        return distance <= 20;
+      });
+      
+      
+      return res.status(200).json(responseObj(true, bookings, "Successfully fetched"));
+    } catch (error) {
+      console.error("Error in newBookings:", error);
+      return res.status(500).json(responseObj(false, null, "Something went wrong"));
     }
-    
-    const newBookings = await prisma.bookings.findMany({
-        where:{
-            Status: "Pending"
-        },
-        orderBy: {
-            UpdatedDateTime: 'desc'
-        },
-        skip: (page-1)* limit,
-        take: limit
-    });
-    const response:Bookings[] = []
-    newBookings.forEach((booking)=>{
-        const distance = haversineDistance(Number(driverLatitude),Number(driverLongitude),booking.PickUpLatitude,booking.PickUpLongitude)
-        if(distance <= 20 ){
-            response.push(booking)
-        }
-    });
-     
-    return res.status(200).json(responseObj(true,response,"Succefully Fetched"));
-
-}
-catch(error:any){
-
-    res.status(500).json(responseObj(false,null,"Something went wrong"));
-}
-}
+  };
 
 
 
 export const acceptedBookings = async (req: Request,res: Response): Promise<any> =>{
     try{
-
+        
         const driverId = req.params.driverId as string;
         if(driverId == ""|| driverId == null || driverId == undefined){
             res.status(411).json(responseObj(false,null,"Incorrect Input"));
@@ -183,9 +185,29 @@ export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
                 UpdatedDateTime: new Date().toISOString()
             }
         })
+        if(await prisma.fareNegotiation.findFirst({
+            where:{
+                BookingId: parsedBody.data?.BookingId as number,
+                DriverId: parseInt((parsedBody.data?.DriverId as unknown as string))
+            }
+        })){
+        await prisma.fareNegotiation.update({
+            where:{
+                BookingId_DriverId: {
+                    BookingId: parsedBody.data?.BookingId as number,
+                    DriverId: parseInt((parsedBody.data?.DriverId as unknown as string))
+                }
+            },
+            data:{
+                DriverId: parseInt((parsedBody.data?.DriverId as unknown as string)),
+                Status: "Accepted"
+            }
+        })
     
-        res.status(200).json(responseObj(true,acceptedBooking,""));
+      
     }
+    res.status(200).json(responseObj(true,acceptedBooking,""));
+}
 
     catch(error: any){
         res.status(500).json(responseObj(false,null,"Something went wrong"+error));
