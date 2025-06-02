@@ -72,8 +72,8 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
       await uploadFile(driverIamge.buffer,driverIamgeName,driverIamge.mimetype);
       await uploadFile(panImage.buffer,panImageName,panImage.mimetype);
 
-      const driverPassword = generatePassword();
-      const encryptedPassword = await bcrypt.hash(driverPassword,2);
+      //const driverPassword = generatePassword();
+      const encryptedPassword = await bcrypt.hash(parsedBody.data?.PanNumber as string,2);
       
       const driver = await prisma.driver.create({
         data:{

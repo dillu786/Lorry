@@ -6,6 +6,7 @@ export const addDriverSchema = z.object({
     MobileNumber: phoneSchema,
     AadharNumber: z.string(),
     PanNumber: z.string(),
-    Gender: z.enum(["MALE","FEMALE"])
+    Gender: z.enum(["MALE","FEMALE"]),
+    Password: z.string()
 
 })
