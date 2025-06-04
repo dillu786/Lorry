@@ -3,8 +3,7 @@ import { PrismaClient, type Bookings } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptRideSchema, makeDriverOnlineSchema } from "../../../types/Driver/types";
 import { negotiateFareSchema } from "../../../types/Driver/types";
-import { getObjectSignedUrl } from "../../../utils/s3utils";
-import { parse } from "path";
+import { getObjectSignedUrl, uploadFile,generateFileName } from "../../../utils/s3utils";
 import { haversineDistance } from "../../../utils/haversine";
 const prisma = new PrismaClient();
 export const newBookings = async (req: Request, res: Response): Promise<any> => {
@@ -28,6 +27,14 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
             none: {} // Booking must not have any fare negotiation
           }
         },
+        include:{
+            User:{
+                select:{
+                    Name:true,
+                    MobileNumber:true
+                }
+            }
+        }
         // orderBy: { UpdatedDateTime: 'desc' },
         // skip: (page - 1) * limit,
         // take: limit
@@ -63,6 +70,21 @@ export const acceptedBookings = async (req: Request,res: Response): Promise<any>
             where:{
                 Status:"Confirmed",
                 DriverId: parseInt(driverId)
+            },
+            include:{
+                User:{
+                    select:{
+                        Name:true,
+                        MobileNumber:true
+                    }
+                    
+                },
+                Driver:{
+                    select:{
+                        Name:true,
+                        MobileNumber:true
+                    }
+                }
             }
         })
 
@@ -127,31 +149,92 @@ export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
     }
 }
 
-export const startTrip = async (req:Request, res: Response):Promise<any> =>{
+    export const startTrip = async (req:Request, res: Response):Promise<any> =>{
 
+        try{
+            const bookingId = req.query.bookingId as string;
+
+            const booking = await prisma.bookings.findFirst({
+                where:{
+                    Id: Number(bookingId)
+                }
+            });
+
+            if(!booking){
+                return res.status(411).json({
+                    message:"Incorrect input"
+                });
+            }
+
+            //@ts-ignore
+            if(!req.files || !req.files['productPhoto']){
+                return res.status(411).json(responseObj(false,"","Product photo is required"))
+
+            }
+            //@ts-ignore
+            const productImage = req.files['productPhoto'][0];
+            const productImageName = generateFileName();
+            await uploadFile(productImage.buffer,productImageName,productImage.mimetype);
+
+        
+            if(bookingId == ""|| bookingId == null || bookingId == undefined){
+                return res.status(411).json(responseObj(false,null,"Incorrect Input"));
+            }
+            
+            console.log("before update product image"+productImageName);
+            await prisma.bookings.update({
+                where:{
+                    Id: parseInt(bookingId)
+                },
+                data:{
+                    Status:"Ongoing",
+                    ProductImage: productImageName
+                }
+            })
+            console.log("after update")
+            res.status(200).json(responseObj(true,null,""));
+            
+        }
+        catch(error:any){
+            res.status(500).json(responseObj(false,null,"Something went wrong"+JSON.stringify(error)));
+        }
+    }
+
+
+export const endTrip = async (req:Request, res:Response): Promise<any> =>{
     try{
-        const bookingId = req.query.bookingId as string;
-    
-        if(bookingId == ""|| bookingId == null || bookingId == undefined){
-            res.status(411).json(responseObj(false,null,"Incorrect Input"));
+        const bookingId = req.query.bookingId;
+        const booking = await prisma.bookings.findFirst({
+            where:{
+                Id: Number(bookingId),
+                Status: "Ongoing"
+            }
+        });
+
+        if(!booking){
+            return res.status(400).json({
+                message : "Booking does not exist"
+            })
         }
 
         await prisma.bookings.update({
             where:{
-                Id: parseInt(bookingId)
+                Id: Number(bookingId)
+
             },
             data:{
-                Status:"Ongoing"
+                Status:"Completed"
             }
-        })
-        res.status(200).json(responseObj(true,null,""));
-        
+        });
+       
+        res.status(200).json(responseObj(true,"","successfully updated"));
     }
-    catch{
-        res.status(500).json(responseObj(false,null,"Something went wrong"));
-    }
-}
+    catch(error:any){
 
+        res.status(500).json(responseObj(false,null,"something went wrong"+error))
+    }
+
+}
 export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
 
     try{

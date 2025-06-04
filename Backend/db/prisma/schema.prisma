@@ -196,6 +196,7 @@ model Bookings {
   VehicleId                   Int?
   VehicleType                 VehicleType @default(MINI_TRUCK)
   Fare                        String
+  ProductImage                String?
   Status                      BookingStatus
   PaymentMode                 PaymentMode
   BookingTime                 DateTime @default(now())
