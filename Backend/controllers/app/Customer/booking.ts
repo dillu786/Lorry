@@ -254,7 +254,6 @@ export const getUserBookingHistory = async (req:Request, res:Response): Promise<
 
 export const getNegotiatedFares = async (req: Request, res: Response): Promise<any> => {
     try {
-  
       //@ts-ignore
       const bookingId = req.query.bookingId;
       //@ts-ignore
@@ -278,11 +277,11 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
           Driver: {
             select: {
               Id: true,
+              Name: true,
               DriverImage: true,
               DriverVehicles: {
                 select: {
                   VehicleId: true
-                  
                 }
               }
             }
@@ -291,18 +290,25 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
         }
       });
   
-      // Optional: Flatten Driver -> VehicleId
-      const result = negotiatedFares.map(async fare => {
-        const vehicleId = fare.Driver?.DriverVehicles?.[0]?.VehicleId || null;
-        return {
-          ...fare,
-          Driver: {
-            Id: fare.Driver?.Id,
-            VehicleId: vehicleId,
-            DriverImage: await getObjectSignedUrl(fare.Driver?.DriverImage as string)
-          }
-        };
-      });
+      // Use Promise.all to resolve async operations inside .map
+      const result = await Promise.all(
+        negotiatedFares.map(async fare => {
+          const vehicleId = fare.Driver?.DriverVehicles?.[0]?.VehicleId || null;
+          const signedUrl = fare.Driver?.DriverImage
+            ? await getObjectSignedUrl(fare.Driver.DriverImage)
+            : null;
+  
+          return {
+            ...fare,
+            Driver: {
+              Id: fare.Driver?.Id,
+              VehicleId: vehicleId,
+              DriverImage: signedUrl,
+              Name: fare.Driver.Name
+            }
+          };
+        })
+      );
   
       return res.status(200).json(responseObj(true, result, "Negotiated Fares Fetched Successfully"));
     } catch (error: any) {
