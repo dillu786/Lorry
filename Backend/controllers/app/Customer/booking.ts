@@ -1,5 +1,6 @@
 import express from "express"
 import type { Request,Response } from "express";
+import { getObjectSignedUrl } from "../../../utils/s3utils";
 import { PaymentMode, Prisma, PrismaClient, VehicleType } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Customer/types";
@@ -277,9 +278,11 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
           Driver: {
             select: {
               Id: true,
+              DriverImage: true,
               DriverVehicles: {
                 select: {
                   VehicleId: true
+                  
                 }
               }
             }
@@ -289,13 +292,14 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
       });
   
       // Optional: Flatten Driver -> VehicleId
-      const result = negotiatedFares.map(fare => {
+      const result = negotiatedFares.map(async fare => {
         const vehicleId = fare.Driver?.DriverVehicles?.[0]?.VehicleId || null;
         return {
           ...fare,
           Driver: {
             Id: fare.Driver?.Id,
-            VehicleId: vehicleId
+            VehicleId: vehicleId,
+            DriverImage: await getObjectSignedUrl(fare.Driver?.DriverImage as string)
           }
         };
       });
