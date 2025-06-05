@@ -251,49 +251,62 @@ export const getUserBookingHistory = async (req:Request, res:Response): Promise<
 
 }
 
-export const getNegotiatedFares = async (req:Request, res:Response): Promise<any> =>{
-    try{
-        //@ts-ignore
-        const bookingId = req.query.bookingId;
-        const mobileNumber = req.user.MobileNumber;
-        const user = await prisma.user.findFirst({
-            where:{
-                MobileNumber: mobileNumber
+export const getNegotiatedFares = async (req: Request, res: Response): Promise<any> => {
+    try {
+  
+      //@ts-ignore
+      const bookingId = req.query.bookingId;
+      //@ts-ignore
+      const mobileNumber = req.user?.MobileNumber;
+  
+      const user = await prisma.user.findFirst({
+        where: {
+          MobileNumber: mobileNumber
+        }
+      });
+  
+      if (!user) {
+        return res.status(400).json(responseObj(false, null, "User not found"));
+      }
+  
+      const negotiatedFares = await prisma.fareNegotiation.findMany({
+        where: {
+          BookingId: Number(bookingId)
+        },
+        include: {
+          Driver: {
+            select: {
+              Id: true,
+              DriverVehicles: {
+                select: {
+                  VehicleId: true
+                }
+              }
             }
-        })  
-
-        if(!user){
-            return res.status(400).json(responseObj(false,null,"User not found"));
-        }   
-
-        let response ={}
-
-        const negotiatedFares = await prisma.fareNegotiation.findFirst({
-            where:{
-               BookingId: Number(bookingId)
-            },  
-            include:{
-                Driver:true,                
-                Booking:true,              
-            }
-        })
-
-        const VehicleId = await prisma.driverVehicle.findFirst({
-            where:{
-                DriverId: negotiatedFares?.DriverId
-            },
-            select:{
-                VehicleId: true
-            }
-        });
-
-        response = {...negotiatedFares,VehicleId}
-        res.status(200).json(responseObj(true,response,"Negotiated Fares Fetched Successfully"));
+          },
+          Booking: true
+        }
+      });
+  
+      // Optional: Flatten Driver -> VehicleId
+      const result = negotiatedFares.map(fare => {
+        const vehicleId = fare.Driver?.DriverVehicles?.[0]?.VehicleId || null;
+        return {
+          ...fare,
+          Driver: {
+            Id: fare.Driver?.Id,
+            VehicleId: vehicleId
+          }
+        };
+      });
+  
+      return res.status(200).json(responseObj(true, result, "Negotiated Fares Fetched Successfully"));
+    } catch (error: any) {
+      console.error("Error in getNegotiatedFares:", error);
+      return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
     }
-    catch(error:any){
-        res.status(500).json(responseObj(false,null,"Something went wrong"));
-    }
-}
+  };
+  
 
 export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<any> =>{
     try{
