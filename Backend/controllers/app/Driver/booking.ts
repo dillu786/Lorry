@@ -101,6 +101,9 @@ export const completedRides = async (req:Request,res:Response):Promise<any> =>{
 
     try{
 
+       
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 5;
         //@ts-ignore
         const driverId = req.user.Id as string;
     
@@ -112,6 +115,11 @@ export const completedRides = async (req:Request,res:Response):Promise<any> =>{
            where:{
             DriverId : parseInt(driverId),
             Status : "Completed"
+           },
+           take: limit,
+           skip: (page -1)* limit,
+           orderBy:{
+           CreatedDateTime : "desc"
            }
            
         }
@@ -131,13 +139,14 @@ export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
     try{
 
         //@ts-ignore
-        const driverId = req.user.Id as string;
-    
-       
+        const driverId = req.user.Id as string;      
         const onGoingRide = await prisma.bookings.findFirst({
             where:{
                 DriverId : parseInt(driverId),
                 Status:"Ongoing"
+            },
+            orderBy:{
+                CreatedDateTime:"desc"
             }
         })
 
@@ -235,7 +244,7 @@ export const endTrip = async (req:Request, res:Response): Promise<any> =>{
     }
 
 }
-export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
+    export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
 
     try{
         console.log("req.body",req.body);
@@ -414,6 +423,7 @@ export const negotiateFare = async (req:Request, res:Response): Promise<any> =>{
                     BookingId: parsedBody.data?.BookingId as number,
                     DriverId: parsedBody.data?.DriverId as number,
                     OwnerId: parsedBody.data?.OwnerId as number,
+                    
                     NegotiatedFare: parsedBody.data?.NegotiatedFare as string,
                     NegotiatedTime: new Date(Date.now())
                 }           

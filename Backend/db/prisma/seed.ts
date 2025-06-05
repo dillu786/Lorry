@@ -149,7 +149,7 @@ async function main() {
     { name: "Edit Settings", code: "settings:edit", description: "Can edit system settings", categoryName: "Settings" },
     {
       name: "Manage Access Control",
-      code: "settings:access_control",
+      code: "access_control:view",
       description: "Can manage roles and permissions",
       categoryName: "Settings",
     },

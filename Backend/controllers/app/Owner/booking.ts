@@ -15,8 +15,45 @@ declare global {
 }
 
 const prisma = new PrismaClient();
+
+export const getCurrentBooking = async (req:Request, res:Response): Promise<any>=>{
+    try{
+       
+       const page = Number(req.query.page) || 1;
+       const limit = Number(req.query.limit) || 5;
+       const ownerId = req.user.Id;
+       const allDrivers = await prisma.owner.findMany({
+        where:{
+            Id: ownerId
+        }
+       });
+
+       const liveBookings = await prisma.bookings.findMany({
+        where:{
+            DriverId: {in: allDrivers.map(driver => driver.Id)},
+            Status: {
+                in:["Pending","Pending"]
+            }
+        },
+        orderBy:{
+            CreatedDateTime:"desc"
+        },
+        take: limit,
+        skip: (page - 1)*limit
+        
+       })
+       return responseObj(true,liveBookings as any,"Live Bookings Fetched Successfully" as string);
+    }
+    catch(error:any){
+        return responseObj(false,null,error.message as string);
+    }
+}
+
 export const getLiveBooking = async (req:Request, res:Response): Promise<any>=>{
     try{
+       
+       const page = Number(req.query.page) || 1;
+       const limit = Number(req.query.limit) || 5;
        const ownerId = req.user.Id;
        const allDrivers = await prisma.owner.findMany({
         where:{
@@ -28,7 +65,13 @@ export const getLiveBooking = async (req:Request, res:Response): Promise<any>=>{
         where:{
             DriverId: {in: allDrivers.map(driver => driver.Id)},
             Status: "Ongoing"
-        }
+        },
+        orderBy:{
+            CreatedDateTime:"desc"
+        },
+        take: limit,
+        skip: (page - 1)*limit
+
        })
        return responseObj(true,liveBookings as any,"Live Bookings Fetched Successfully" as string);
     }
@@ -39,6 +82,9 @@ export const getLiveBooking = async (req:Request, res:Response): Promise<any>=>{
 
 export const getCompletedBooking = async (req:Request, res:Response): Promise<any>=>{
     try{
+
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 5
         const ownerId = req.user.Id;
         const allDrivers = await prisma.owner.findMany({
             where:{
@@ -49,7 +95,12 @@ export const getCompletedBooking = async (req:Request, res:Response): Promise<an
             where:{
                 DriverId: {in: allDrivers.map(driver => driver.Id)},
                 Status: "Completed"
-            }
+            },
+            orderBy:{
+                CreatedDateTime: "desc"
+            },
+            take: limit,
+            skip: (page-1)*limit
         })
         return responseObj(true,completedBookings as any,"Completed Bookings Fetched Successfully" as string);  
     }

@@ -8,7 +8,7 @@ import type { RideRequest } from "../../../types/Common/types";
         import { declineBookingSchema } from "../../../types/Customer/types";
 const prisma = new PrismaClient();
 
-export const    declineBooking = async (req: Request, res: Response): Promise<any>=>{
+export const declineBooking = async (req: Request, res: Response): Promise<any>=>{
     try{
         //@ts-ignore
         const parsedBody = declineBookingSchema.safeParse(req.body);
@@ -84,6 +84,8 @@ export const cancelBooking = async (req: Request, res: Response): Promise<any>=>
 export const currentBooking = async (req: Request, res: Response): Promise<any>=>{
     try{
         //@ts-ignore
+        const page = Number(req.query.page) || 1
+        const limit = Number(req.query.page) || 5
         const mobileNumber = req.user.MobileNumber;
         const user = await prisma.user.findFirst({ 
             where:{
@@ -99,7 +101,10 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
         const bookings = await prisma.bookings.findMany({
             where:{
                 UserId: Number(user.Id),
-                Status: "Pending"
+                Status:  { 
+                     in:["Confirmed","Pending"]                 
+                },
+                
             },
         
             include:{
@@ -115,6 +120,12 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
                   }
                 }
             },
+            take: Number(limit),
+            skip: Number((page -1) * limit),
+
+            orderBy:{
+                CreatedDateTime :"desc"
+            }
         });
 
         res.status(200).json(responseObj(true,bookings,"Bookings Successfully Fetched"));
@@ -188,6 +199,9 @@ export const getUserBookingHistory = async (req:Request, res:Response): Promise<
 
     try{
         //@ts-ignore
+
+        const page = Number(req.query.page) || 1 ;
+        const limit = Number(req.query.limit) || 5 ;
         const mobileNumber = req.user.MobileNumber;
         const user = await prisma.user.findFirst({ 
             where:{
@@ -219,6 +233,11 @@ export const getUserBookingHistory = async (req:Request, res:Response): Promise<
                   }
                 }
             },
+            orderBy:{
+                CreatedDateTime:"desc"
+            },
+            take: limit,
+            skip: (page-1) * limit
         });
 
         res.status(200).json(responseObj(true,bookings,"Bookings Successfully Fetched"));
@@ -247,20 +266,29 @@ export const getNegotiatedFares = async (req:Request, res:Response): Promise<any
             return res.status(400).json(responseObj(false,null,"User not found"));
         }   
 
-        const negotiatedFares = await prisma.fareNegotiation.findMany({
+        let response ={}
+
+        const negotiatedFares = await prisma.fareNegotiation.findFirst({
             where:{
                BookingId: Number(bookingId)
             },  
             include:{
                 Driver:true,                
-                Booking:true
-
+                Booking:true,              
             }
         })
 
-        res.status(200).json(responseObj(true,negotiatedFares,"Negotiated Fares Fetched Successfully"));
-        
-        
+        const VehicleId = await prisma.driverVehicle.findFirst({
+            where:{
+                DriverId: negotiatedFares?.DriverId
+            },
+            select:{
+                VehicleId: true
+            }
+        });
+
+        response = {...negotiatedFares,VehicleId}
+        res.status(200).json(responseObj(true,response,"Negotiated Fares Fetched Successfully"));
     }
     catch(error:any){
         res.status(500).json(responseObj(false,null,"Something went wrong"));
