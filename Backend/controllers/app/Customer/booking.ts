@@ -6,7 +6,7 @@ import { responseObj } from "../../../utils/response";
 import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Customer/types";
 import { notifyNearbyDrivers } from "../../..";
 import type { RideRequest } from "../../../types/Common/types";
-        import { declineBookingSchema } from "../../../types/Customer/types";
+import { declineBookingSchema } from "../../../types/Customer/types";
 const prisma = new PrismaClient();
 
 export const declineBooking = async (req: Request, res: Response): Promise<any>=>{
@@ -16,23 +16,34 @@ export const declineBooking = async (req: Request, res: Response): Promise<any>=
         if(!parsedBody.success){
             return res.status(400).json(responseObj(false,null,"Invalid Input"));
         }
-        const [booking,driver] = await Promise.all([
-            prisma.bookings.findFirst({
-                where:{
-                    Id: parsedBody.data.BookingId
+                const [booking,driver] = await Promise.all([
+                    prisma.bookings.findFirst({
+                        where:{
+                            Id: parsedBody.data.BookingId
+                        }
+                    }),
+                    prisma.user.findFirst({
+                        where:{
+                            Id: parsedBody.data.DriverId
+                        }
+                    })
+                ])
+                console.log(`booking, driver ${JSON.stringify(booking)}`)
+                if(!booking){
+                    return res.status(400).json(responseObj(false,null,"Booking not found"));
                 }
-            }),
-            prisma.user.findFirst({
-                where:{
-                    Id: parsedBody.data.DriverId
+                if(!driver){
+                    return res.status(400).json(responseObj(false,null,"Driver not found"));
                 }
-            })
-        ])
-        if(!booking){
-            return res.status(400).json(responseObj(false,null,"Booking not found"));
-        }
-        if(!driver){
-            return res.status(400).json(responseObj(false,null,"Driver not found"));
+        const fareNegotiation = await prisma.fareNegotiation.findFirst({
+            where:{
+                BookingId: parsedBody.data.BookingId,
+                DriverId: parsedBody.data.DriverId
+            }
+        })
+
+        if(!fareNegotiation){
+            return res.status(400).json(responseObj(false,null,"negotiation does not exist"));
         }
         
         await prisma.fareNegotiation.update({
