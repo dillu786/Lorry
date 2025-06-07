@@ -59,6 +59,53 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
   };
 
 
+  export const getDriverBookingHistory = async (req:Request, res:Response): Promise<any>=>{
+
+    try{
+        //@ts-ignore
+
+        const page = Number(req.query.page) || 1 ;
+        const limit = Number(req.query.limit) || 5 ;
+        const driverId = req.user.Id;
+      
+        
+        
+        
+        const bookings = await prisma.bookings.findMany({
+            where:{
+                DriverId: driverId,
+                Status: "Completed"
+            },
+           
+            include:{
+                Driver:{
+                    select:{
+                        Name:true  
+                    }
+                },
+                Vehicle:{
+                  select:{
+                    Model: true
+                  }
+                }
+            },
+            orderBy:{
+                CreatedDateTime:"desc"
+            },
+            take: limit,
+            skip: (page-1) * limit
+        });
+
+        res.status(200).json(responseObj(true,bookings,"Bookings Successfully Fetched"));
+
+    }
+    catch(err: any){
+        res.status(500).json(responseObj(false,null,"Something went wrong"));
+    }
+    
+
+
+}
 
 export const acceptedBookings = async (req: Request,res: Response): Promise<any> =>{
     try{
@@ -70,7 +117,7 @@ export const acceptedBookings = async (req: Request,res: Response): Promise<any>
         const acceptedBookings = await prisma.bookings.findMany({
             where:{
                 Status:"Confirmed",
-                DriverId: driverId
+                DriverId: driverId  
             },
             include:{
                 User:{
