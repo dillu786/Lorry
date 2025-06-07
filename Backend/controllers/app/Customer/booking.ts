@@ -7,6 +7,7 @@ import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Custo
 import { notifyNearbyDrivers } from "../../..";
 import type { RideRequest } from "../../../types/Common/types";
 import { declineBookingSchema } from "../../../types/Customer/types";
+import { GetObjectAclCommand } from "@aws-sdk/client-s3";
 const prisma = new PrismaClient();
 
 export const declineBooking = async (req: Request, res: Response): Promise<any>=>{
@@ -128,7 +129,8 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
                 },
                 Vehicle:{
                   select:{
-                    Model: true
+                    Model: true,
+                    VehicleImage: true
                   }
                 }
             },
@@ -139,8 +141,16 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
                 CreatedDateTime :"desc"
             }
         });
+       
+        const resp = await Promise.all(bookings.map( async item=>{
 
-        res.status(200).json(responseObj(true,bookings,"Bookings Successfully Fetched"));
+            if(item.Vehicle?.VehicleImage){
+             item.Vehicle.VehicleImage =  await getObjectSignedUrl(item.Vehicle.VehicleImage);
+            }
+            return item
+        }))
+       
+        res.status(200).json(responseObj(true, resp ,"Bookings Successfully Fetched"));
 }
 catch(error: any){
     res.status(500).json(responseObj(true,null,"Something went wrong"+error ));
@@ -282,8 +292,12 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
   
       const negotiatedFares = await prisma.fareNegotiation.findMany({
         where: {
-          BookingId: Number(bookingId)
+          BookingId: Number(bookingId),
+          Status: {
+            not: "Declined"
+          }
         },
+        
         include: {
           Driver: {
             select: {
