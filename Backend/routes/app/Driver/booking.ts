@@ -14,7 +14,7 @@ router.post("/startTrip",Drivermiddleware,upload.fields([{
 router.post("/acceptRides",Drivermiddleware,acceptRide);
 router.get("/accetedBooking",Drivermiddleware,acceptedBookings);
 router.get("/historicalRides",Drivermiddleware,getUserBookingHistory);
-router.get("/onGoingRide",Drivermiddleware,onGoingRide);
+router.get("/ongoingRide",Drivermiddleware,onGoingRide);
 router.get("/completedRides",Drivermiddleware,completedRides);
 router.patch("/makeDriverOnline",Drivermiddleware,makeDriverOnline);
 router.patch("/makeDriverOffline",Drivermiddleware,makeDriverOffline);

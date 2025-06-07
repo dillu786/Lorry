@@ -6,6 +6,7 @@ import { negotiateFareSchema } from "../../../types/Driver/types";
 import { getObjectSignedUrl, uploadFile,generateFileName } from "../../../utils/s3utils";
 import { haversineDistance } from "../../../utils/haversine";
 const prisma = new PrismaClient();
+
 export const newBookings = async (req: Request, res: Response): Promise<any> => {
     try {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -62,14 +63,14 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
 export const acceptedBookings = async (req: Request,res: Response): Promise<any> =>{
     try{
         
-        const driverId = req.params.driverId as string;
-        if(driverId == ""|| driverId == null || driverId == undefined){
+        const driverId = req.user.Id;
+        if( driverId == null || driverId == undefined){
             res.status(411).json(responseObj(false,null,"Incorrect Input"));
         }
         const acceptedBookings = await prisma.bookings.findMany({
             where:{
                 Status:"Confirmed",
-                DriverId: parseInt(driverId)
+                DriverId: driverId
             },
             include:{
                 User:{
@@ -99,9 +100,7 @@ export const acceptedBookings = async (req: Request,res: Response): Promise<any>
 
 export const completedRides = async (req:Request,res:Response):Promise<any> =>{
 
-    try{
-
-       
+    try{    
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 5;
         //@ts-ignore
@@ -137,7 +136,6 @@ export const completedRides = async (req:Request,res:Response):Promise<any> =>{
 export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
 
     try{
-
         //@ts-ignore
         const driverId = req.user.Id as string;      
         const onGoingRide = await prisma.bookings.findFirst({

@@ -123,8 +123,8 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
             include:{
                 Driver:{
                     select:{
-                        Name:true
-    
+                        Name: true,
+                        MobileNumber: true
                     }
                 },
                 Vehicle:{
@@ -293,11 +293,8 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
       const negotiatedFares = await prisma.fareNegotiation.findMany({
         where: {
           BookingId: Number(bookingId),
-          Status: {
-            not: "Declined"
-          }
-        },
-        
+          Status: "Pending"
+        },        
         include: {
           Driver: {
             select: {
