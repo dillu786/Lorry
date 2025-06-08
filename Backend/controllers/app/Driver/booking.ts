@@ -59,7 +59,7 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
   };
 
 
-  export const getDriverBookingHistory = async (req:Request, res:Response): Promise<any>=>{
+      export const getDriverBookingHistory = async (req:Request, res:Response): Promise<any>=>{
 
     try{
         //@ts-ignore
@@ -67,10 +67,7 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
         const page = Number(req.query.page) || 1 ;
         const limit = Number(req.query.limit) || 5 ;
         const driverId = req.user.Id;
-      
-        
-        
-        
+
         const bookings = await prisma.bookings.findMany({
             where:{
                 DriverId: driverId,
@@ -189,6 +186,14 @@ export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
             where:{
                 DriverId : parseInt(driverId),
                 Status:"Ongoing"
+            },
+            include:{
+                User:{
+                    select:{
+                        Name : true,
+                        MobileNumber : true
+                    }
+                }
             },
             orderBy:{
                 CreatedDateTime:"desc"
