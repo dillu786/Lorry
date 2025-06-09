@@ -245,13 +245,14 @@ export const getUserBookingHistory = async (req:Request, res:Response): Promise<
             include:{
                 Driver:{
                     select:{
-                        Name:true
-    
+                        Name:true,
+                        MobileNumber: true,
                     }
                 },
                 Vehicle:{
                   select:{
-                    Model: true
+                    Model: true,
+                    VehicleNumber: true
                   }
                 }
             },
@@ -312,6 +313,7 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
         }
       });
   
+      console.log(`negotiatedFares ${JSON.stringify(negotiatedFares)}`);
       // Use Promise.all to resolve async operations inside .map
       const result = await Promise.all(
         negotiatedFares.map(async fare => {
@@ -340,6 +342,7 @@ export const getNegotiatedFares = async (req: Request, res: Response): Promise<a
   };
   
 
+    
 export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<any> =>{
     try{
         //@ts-ignore
