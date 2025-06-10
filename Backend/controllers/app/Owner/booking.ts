@@ -109,6 +109,20 @@ export const getCompletedBooking = async (req: Request, res: Response): Promise<
                 DriverId: { in: allDrivers.map(driver => driver.DriverId) },
                 Status: "Completed"
             },
+            include:{
+                Driver:{
+                    select:{
+                        Name: true,
+                        MobileNumber: true
+                    }
+                },
+                User:{
+                    select:{
+                        Name: true,
+                        MobileNumber: true
+                    }
+                }
+            },
             orderBy: {
                 CreatedDateTime: "desc"
             },
