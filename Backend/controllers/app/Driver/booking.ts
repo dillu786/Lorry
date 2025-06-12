@@ -356,55 +356,61 @@ export const endTrip = async (req:Request, res:Response): Promise<any> =>{
     }
 }
 
-export const getDriverDetails = async (req:Request, res:Response): Promise<any> =>{
-    try{
+export const getDriverDetails = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const driverId = Number(req.user.Id);
 
-        const driverId = req.user.Id;
-        let driver = await prisma.driver.findFirst({
-            where:{
-                Id: parseInt(driverId as unknown as string)
-            },
-            select:{
-                Name:true,
+        const driver = await prisma.driver.findFirst({
+            where: { Id: driverId },
+            select: {
+                Name: true,
                 MobileNumber: true,
-                Id:true,
+                Id: true,
                 DOB: true,
-                DrivingLicenceNumber:true,
-                DriverImage:true,
+                DrivingLicenceNumber: true,
+                DriverImage: true,
                 DrivingLicenceBackImage: true,
                 DrivingLicenceFrontImage: true,
-                DriverOwner:{
-                    select:{
-                        OwnerId:true
+                DriverOwner: {
+                    select: {
+                        OwnerId: true
                     }
                 },
-                DriverVehicles:{
-                    select:{
-                        VehicleId:true      
+                DriverVehicles: {
+                    select: {
+                        VehicleId: true,
+                        Vehicle: {
+                            select: {
+                                Model: true,
+                                VehicleImage: true,
+                                VehicleNumber: true,
+                                VehicleType: true
+                            }
+                        }
                     }
                 }
             },
-          
         });
 
-        if(!driver){
-            res.status(400).json(responseObj(false,null,"Driver not found"));
+        if (!driver) {
+            return res.status(400).json(responseObj(false, null, "Driver not found"));
         }
 
-        if(driver){
-            driver.DriverImage = await getObjectSignedUrl(driver?.DriverImage as string);
-            driver.DrivingLicenceFrontImage = await getObjectSignedUrl(driver?.DrivingLicenceFrontImage as string);
-            driver.DrivingLicenceBackImage = await getObjectSignedUrl(driver?.DrivingLicenceBackImage as string);
-            res.status(200).json(responseObj(true,driver,"successfully fetched"));
-        }
-     
-    }
-    catch(error:any){
-        res.status(500).json(responseObj(false,null,error as any))
-    }
+        // Signed URLs
+        driver.DriverImage = await getObjectSignedUrl(driver.DriverImage as string);
+        driver.DrivingLicenceFrontImage = await getObjectSignedUrl(driver.DrivingLicenceFrontImage as string);
+        driver.DrivingLicenceBackImage = await getObjectSignedUrl(driver.DrivingLicenceBackImage as string);
 
-    
-}
+        for (const vehicle of driver.DriverVehicles) {
+            vehicle.Vehicle.VehicleImage = await getObjectSignedUrl(vehicle.Vehicle.VehicleImage as string);
+        }
+
+        return res.status(200).json(responseObj(true, driver, "Successfully fetched"));
+
+    } catch (error: any) {
+        return res.status(500).json(responseObj(false, null, error.message || "Server error"));
+    }
+};
 
 export const makeDriverOnline = async (req:Request, res:Response): Promise<any> =>{
     try{
