@@ -42,7 +42,7 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
         });
        }
      //@ts-ignore
-     if (!req.files || !req.files['aadharImageFront'] || !req.files['aadharImageBack'] || !req.files['panImage'] || !req.files["licenseImageFront"]|| !req.files["licenseImageBack"]|| !req.files["driverImage"]) {
+     if (!req.files || !req.files['aadharImageFront'] || !req.files['aadharImageBack'] || !req.files["licenseImageFront"]|| !req.files["licenseImageBack"]|| !req.files["driverImage"]) {
         return res.status(400).json({ error: 'Missing required image files' });
       }
       //@ts-ignore
@@ -56,21 +56,32 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
       //@ts-ignore
       const licenseImageBack = req.files["licenseImageBack"][0];
       //@ts-ignore
-      const panImage = req.files["panImage"][0];
+      //const panImage = req.files["panImage"][0];
     
       const aadharImageFrontName = generateFileName();
       const aadharImageBackName = generateFileName();
       const licenseImageBackName = generateFileName();
       const licenseImageFrontName = generateFileName();
       const driverIamgeName = generateFileName();
-      const panImageName = generateFileName();
+      let panImageName ;
+
+      //@ts-ignore
+      if(req.files['panImage'] ){
+        console.log(`control reaced inside`)
+        //@ts-ignore
+        
+        const panImage = req.files["panImage"][0];
+         panImageName = generateFileName();
+        await uploadFile(panImage.buffer,panImageName,panImage.mimetype);
+      }
+     
     
       await uploadFile(aadharImageFront.buffer,aadharImageFrontName,aadharImageFront.mimetype);
       await uploadFile(aadharImageBack.buffer,aadharImageBackName,aadharImageBack.mimetype);
       await uploadFile(licenseImageFront.buffer,licenseImageFrontName,licenseImageFront.mimetype);
       await uploadFile(licenseImageBack.buffer,licenseImageBackName,licenseImageBack.mimetype);
       await uploadFile(driverIamge.buffer,driverIamgeName,driverIamge.mimetype);
-      await uploadFile(panImage.buffer,panImageName,panImage.mimetype);
+     
 
       //const driverPassword = generatePassword();
       const encryptedPassword = await bcrypt.hash(parsedBody.data?.Password as string,2);
@@ -88,7 +99,7 @@ export const addDriver = async (req:Request,res:Response):Promise<any>=>{
             DrivingLicenceBackImage: licenseImageBackName,
             DrivingLicenceFrontImage: licenseImageFrontName,
             Gender: parsedBody.data?.Gender as unknown as any,
-            PanImage: panImageName,
+            PanImage: panImageName as any,
             MobileNumber: parsedBody.data?.MobileNumber as any
         }
       })

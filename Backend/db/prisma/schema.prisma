@@ -75,8 +75,8 @@ model Driver {
   AdhaarCardNumber       String    @unique
   FrontSideAdhaarImage   String
   BackSideAdhaarImage    String
-  PanNumber              String    @unique
-  PanImage               String
+  PanNumber              String?    @unique
+  PanImage               String?
   LastLoggedIn           DateTime  @default(now())
   CreatedDate            DateTime  @default(now())
   IsOnline               Boolean   @default(false)

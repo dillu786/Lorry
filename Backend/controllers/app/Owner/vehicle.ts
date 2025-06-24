@@ -195,7 +195,8 @@ export const getVehicleByVehicleId = async (req:Request, res: Response):Promise<
         PermitImage: true,
         VehicleInsuranceImage: true,
         VehicleNumber: true,
-        Category:true
+        Category:true,
+        VehicleType: true
     }
   });
   
