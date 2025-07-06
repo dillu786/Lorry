@@ -5,7 +5,7 @@ export const addDriverSchema = z.object({
     DrivingLicense: z.string(),
     MobileNumber: phoneSchema,
     AadharNumber: z.string(),
-    PanNumber: z.string(),
+    PanNumber: z.string().optional(),
     Gender: z.enum(["MALE","FEMALE"]),
     Password: z.string()
 

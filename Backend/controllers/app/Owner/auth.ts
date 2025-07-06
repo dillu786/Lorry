@@ -153,95 +153,55 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
 export const sendOtp = async (req: Request, res: Response): Promise<any> => {
   // Validate the request body using your schema
   const parsedBody = otpSchema.safeParse(req.body);
-  
-  // If the body is invalid, return a 411 error
   if (!parsedBody.success) {
     return res.status(411).json({
-      message: "Incorrect Input"
+      message: "Incorrect Input"+parsedBody.error.message
     });
   }
-
-  // Generate a one-time password (OTP)
-  const verificationToken = generateOTP();
-
-  // Email content for the OTP message
-  const content = `
-    Hello,
-    Thank you for signing in. To verify your mobile number, please use the following OTP code:
-    
-    OTP: **${verificationToken}**
-
-    If you did not request this verification, please ignore this message.
-
-    Thank you,  
-    Your App Team
-  `;
-
-  // Convert the message content to markdown (if needed)
-  const markedDownContent = marked(content);
-
-  // Prepare the message data to send via SMS (msg91 API)
-  const data = JSON.stringify({
-    templateId: "671b7af8d6fc05545e7f4d52", // Your template ID
-    short_url: "0", // Adjust according to your API documentation
-    route: 4, // Adjust according to your API documentation
-    sender: "VIBELS", // Sender name
-    mobiles: `91${parsedBody.data.MobileNumber}`, // Mobile number with country code
-    variables: {
-      var1: verificationToken, // OTP variable
-    },
-  });
-
-  // OTP data to save in the database
-  const otpData = {
-    mobileNumber: parsedBody.data.MobileNumber , // OTP mobile number
-    Otp: verificationToken , // OTP code
-    //expiresAt: new Date(Date.now() + 5 * 60 * 1000) // Expiry time set to 5 minutes from now
-  };
-
-  try {
-    // Save OTP to the database
-    await prisma.otp.create({
-      //@ts-ignore
-      data: otpData,
-    });
-
-    // Send OTP via msg91 API
-    const config = {
-      method: 'post',
-      url: 'https://control.msg91.com/api/v5/sms/sendSms', // Msg91 API endpoint
-      headers: {
-        authKey: '433247AmIdZ5My671b8140P1', // Your Msg91 auth key
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      data: data,
-    };
-
-    // Make the request to send the SMS
-    const msgReq = await axios.request(config);
-    const msgResp = msgReq.data; // The response from msg91
-    console.log(JSON.stringify(msgResp));
-    // Check if the response is successful and return a response
-    if (msgResp.type) {
-      return res.status(200).json({
-        message: "OTP sent successfully",
-        otp: verificationToken, // You might want to remove this in production for security reasons
-      });
-    } else {
-      // If message sending failed
-      return res.status(500).json({
-        message: "Failed to send OTP",
-        error: msgResp.message,
-      });
+  const otp = generateOTP();
+  await prisma.otp.create({
+    data:{
+      MobileNumber: parsedBody.data.MobileNumber,
+      Otp: otp
     }
-  } catch (error:any) {
-    console.error("Error while sending OTP:", error);
-    return res.status(500).json({
-      message: "An error occurred while sending the OTP.",
-      error: error.message,
+  }).then(()=>{
+    console.log("OTP sent successfully");
+  }).catch((error:any)=>{
+    console.log("Error sending OTP",error);
+  })  
+  
+  try {
+    const response = await axios.post(
+      "https://www.fast2sms.com/dev/bulkV2",
+      {
+        route: "dlt",
+        sender_id: "RELRDR",        // Replace with your actual DLT sender ID
+        message: "189050",          // Replace with your DLT template ID
+        variables_values: otp,
+        flash: 0,
+        numbers: parsedBody.data.MobileNumber
+      },
+      {
+        headers: {
+          authorization: process.env.FAST2SMS_API_KEY || "",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: response.data
+    });
+  } catch (error: any) {
+    console.error("Fast2SMS Error:", error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send OTP",
+      error: error.response?.data || error.message
     });
   }
+  
 };
 
 export const uploadDocument = async (req:Request, res:Response):Promise<any>=>{
@@ -338,7 +298,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     if (!parsedBody.success){
   
       return res.status(411).json({
-        message : "Invalid Body"
+        message : "Invalid Body"+parsedBody.error.message
       })
     }
   
@@ -387,7 +347,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
 
       const accesstoken = jwt.sign({
         user
-      },process.env.JWT_SECRET as unknown as string)
+      },process.env.JWT_SECRET_OWNER as unknown as string)
 
       return res.status(200).json({
         message:"Successfully loggedIn",
@@ -407,7 +367,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
   }
   catch(Exception:any){
     return res.status(500).json({
-      message : "Something went wrong"
+      message : "Something went wrong"+Exception.message
     })
 
   }
