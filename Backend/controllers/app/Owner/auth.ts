@@ -353,6 +353,74 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     
 };
 
+export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promise<any> => {
+  const { otp, mobile_number } = req.body;
+
+  try
+  {
+    const parsedBody = verifyOtpSchema.safeParse(req.body);
+    if (!parsedBody.success){
+  
+      return res.status(411).json({
+        message : "Invalid Body"+parsedBody.error.message
+      })
+    }
+  
+    const savedOtp = await  prisma.otp.findFirst({
+      where:{
+        MobileNumber: parsedBody.data.MobileNumber
+      }
+    })
+  
+    if(!savedOtp){
+      return res.status(411).json({
+        message : "Incorrect body"
+      })
+    }
+  
+    if(savedOtp?.Otp === parsedBody.data.Otp){
+     const user = await prisma.owner.findFirst({
+        where:{
+          MobileNumber: parsedBody.data.MobileNumber
+        }
+      })
+  
+      if(!user){       
+        return res.status(400).json({
+          message : "Owner not found"
+        })
+  
+      }
+      await prisma.otp.delete({
+        where:{
+          MobileNumber:parsedBody.data.MobileNumber
+        }
+      })
+
+      const accesstoken = jwt.sign({
+        user
+      },process.env.JWT_SECRET_OWNER as unknown as string)
+
+      return res.status(200).json({
+        message:"Successfully loggedIn",
+        accessToken: accesstoken
+      })
+    }
+    else{
+      return res.status(411).json({
+        message : "Entered Wrong OTP"
+      })
+    }
+      
+  }
+  catch(Exception:any){
+    return res.status(500).json({
+      message : "Something went wrong"+Exception.message
+    })
+
+  }
+    
+};
 
 export const resetPassword = async (req:Request, res: Response): Promise<any>=> {
 
@@ -365,14 +433,15 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
     }
     const owner = await prisma.owner.findFirst({
       where:{
-        MobileNumber :req.user.MobileNumber
+        MobileNumber: req.user.user.MobileNumber
       }
     });
-  
+
+    console.log(`owner ${JSON.stringify(owner)}`);
     if(owner){
-       await prisma.owner.update({
+       await prisma.owner.update({  
         where:{
-          MobileNumber:req.user.MobileNumber
+          MobileNumber: req.user.user.MobileNumber
         },
         data:{
           Password : await bcrypt.hash(parsedBody.data.password,2) 
@@ -387,7 +456,7 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
   }
 
   catch(error: any){
-    return res.status(500).json(responseObj(false,null,"Something went wrong"));
+    return res.status(500).json(responseObj(false,null,"Something went wrong"+error));
   }
 
 

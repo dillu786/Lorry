@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { resetPassword, sendOtp,verifyOTP } from "../../../controllers/app/Owner/auth";
+import { resetPassword,verifyOtpOnPasswordReset, sendOtp,verifyOTP } from "../../../controllers/app/Owner/auth";
 import { OwnerMiddleware } from "../../../middlewares/middleware";
 import { uploadDocument } from "../../../controllers/app/Owner/auth";
 import { signUp,signIn,register } from "../../../controllers/app/Owner/auth";
@@ -17,6 +17,7 @@ const router = express.Router();
 router.post("/signup",signUp);
 router.post("/signin",signIn);
 router.post("/verifyOtp",verifyOTP);
+router.post("/verifyOtpOnPasswordReset",verifyOtpOnPasswordReset);
 router.post("/sendOtp",sendOtp);
 router.post("/resetPassword",OwnerMiddleware,resetPassword);
 router.post("/register",OwnerMiddleware,upload.single('OwnerImage'),register);
