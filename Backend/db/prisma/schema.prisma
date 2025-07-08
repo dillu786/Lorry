@@ -23,7 +23,7 @@ model User{
   Id                 Int   @default(autoincrement()) @id
   MobileNumber       String @unique
   Name               String
-  Password           String
+  Password           String?
   DOB                DateTime?
   Email              String?
   IsActive           Boolean @default(true)  

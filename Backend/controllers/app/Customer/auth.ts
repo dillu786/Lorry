@@ -164,6 +164,18 @@ export const sendOtp = async (req: Request, res: Response): Promise<any> => {
     });
   }
   const otp =   generateOTP();
+  const otpExists = await prisma.otp.findFirst({
+    where:{
+      MobileNumber: parsedBody.data.MobileNumber
+    }
+  });
+  if(otpExists){
+    await prisma.otp.delete({
+      where:{
+        MobileNumber: parsedBody.data.MobileNumber
+      }
+    })
+  }
   await prisma.otp.create({
     data:{
       MobileNumber: parsedBody.data.MobileNumber,
@@ -208,7 +220,63 @@ export const sendOtp = async (req: Request, res: Response): Promise<any> => {
   }
   
 };
+
 export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
+  const { otp, mobile_number } = req.body;
+  try
+  {
+    const parsedBody = verifyOtpSchema.safeParse(req.body);
+    if (!parsedBody.success){
+  
+      return res.status(411).json({
+        message : "Invalid Body"+parsedBody.error.message
+      })
+    } 
+    const savedOtp = await  prisma.otp.findFirst({
+      where:{
+        MobileNumber: parsedBody.data.MobileNumber
+      },
+      orderBy: {
+        CreatedAt:'desc'
+      }
+    })
+  
+    if(!savedOtp){
+      return res.status(411).json({
+        message : "Incorrect body"
+      })
+    }
+    if(savedOtp?.Otp === parsedBody.data.Otp){
+      await prisma.otp.delete({
+        where:{
+          MobileNumber:parsedBody.data.MobileNumber
+        }
+      })
+      return res.status(200).json({
+        message:"Otp verified successfully"
+      })
+    }
+
+    else{
+
+      return res.status(411).json({
+        message : "Entered Wrong OTP"
+      })
+    }
+
+   
+   
+  }
+  catch(Exception:any){
+    return res.status(500).json({
+      message : "Something went wrong"+Exception.message
+    })
+
+  }
+    
+};
+
+export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> => {
   const { otp, mobile_number } = req.body;
 
   try
@@ -220,7 +288,6 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
         message : "Invalid Body"+parsedBody.error.message
       })
     }
-  
   
     const savedOtp = await  prisma.otp.findFirst({
       where:{
@@ -235,21 +302,18 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     }
   
     if(savedOtp?.Otp === parsedBody.data.Otp){
-     const user = await prisma.otp.findFirst({
+     const user = await prisma.user.findFirst({
         where:{
           MobileNumber: parsedBody.data.MobileNumber
         }
       })
   
-      if(!user){
-         
+      if(!user){       
         return res.status(400).json({
           message : "user not founnd"
         })
   
       }
-  
-  
       await prisma.otp.delete({
         where:{
           MobileNumber:parsedBody.data.MobileNumber
@@ -265,16 +329,12 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
         accessToken: accesstoken
       })
     }
-
     else{
-
       return res.status(411).json({
         message : "Entered Wrong OTP"
       })
     }
-
-   
-   
+      
   }
   catch(Exception:any){
     return res.status(500).json({
