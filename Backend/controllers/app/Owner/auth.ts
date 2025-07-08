@@ -330,15 +330,6 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
   
       }
   
-      await prisma.owner.update({
-        where:{
-          MobileNumber: parsedBody.data.MobileNumber
-        },
-        data:{
-          LastLoggedIn: new Date()
-        }
-      })
-  
       await prisma.otp.delete({
         where:{
           MobileNumber:parsedBody.data.MobileNumber
