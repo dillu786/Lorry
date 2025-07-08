@@ -378,12 +378,16 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
           Password : await bcrypt.hash(parsedBody.data.password,2) 
         }
        })
-       res.status(200).json(responseObj(true,null,"Password has been successfully reset"));
+       return res.status(200).json(responseObj(true,null,"Password has been successfully reset"));
     }
+    else{
+      return res.status(400).json(responseObj(false,null, "Owner not found"));
+    }
+
   }
 
   catch(error: any){
-    res.status(500).json(responseObj(false,null,"Something went wrong"));
+    return res.status(500).json(responseObj(false,null,"Something went wrong"));
   }
 
 
