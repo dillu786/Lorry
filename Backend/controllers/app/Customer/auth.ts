@@ -19,7 +19,7 @@ const createAccountSchema = z.object({
     Name: nameSchema,
     MobileNumber: phoneSchema,
     Gender: z.enum(["MALE","FEMALE"]),
-    email: z.string().email("Incorrect Email").optional()
+    Email: z.string().email("Incorrect Email").optional()
 })
 
 export const signUp = async (req:Request,res:Response): Promise<any>=>{
@@ -143,7 +143,7 @@ export const createAccount = async (req:Request, res:Response):Promise<any>=>{
                 Name: parsedBody.data?.Name as string,
                 MobileNumber: parsedBody.data?.MobileNumber as string,
                 Gender: parsedBody.data?.Gender as any,
-                Email: parsedBody.data?.email
+                Email: parsedBody.data?.Email
                 //Password: await bcrypt.hash(parsedBody.data?.Password as string,2)
             }
         })
