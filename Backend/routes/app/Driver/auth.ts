@@ -5,7 +5,7 @@ import { Drivermiddleware } from "../../../middlewares/middleware";
 const router = express.Router();
 
 router.post("/resetPassword",Drivermiddleware,resetPassword);
-router.post("/verifyOtpOnPasswordReset",Drivermiddleware,verifyOtpOnPasswordReset);
+router.post("/verifyOtpOnPasswordReset",verifyOtpOnPasswordReset);
 router.post("/signIn",signIn);
 router.post("/verifyOtp",verifyOTP);
 router.post("/sendOtp",sendOtp);
