@@ -23,5 +23,13 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "types/express-extensions.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

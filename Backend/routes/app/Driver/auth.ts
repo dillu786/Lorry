@@ -1,5 +1,5 @@
 import express from "express"
-import { resetPassword,sendOtp,signIn, verifyOTP,verifyOtpOnPasswordReset } from "../../../controllers/app/Driver/auth";
+import { resetPassword,sendOtp,signIn, verifyOTP,verifyOtpOnPasswordReset, getDocumentVerificationStatus } from "../../../controllers/app/Driver/auth";
 import { Drivermiddleware } from "../../../middlewares/middleware";
 
 const router = express.Router();
@@ -9,4 +9,5 @@ router.post("/verifyOtpOnPasswordReset",verifyOtpOnPasswordReset);
 router.post("/signIn",signIn);
 router.post("/verifyOtp",verifyOTP);
 router.post("/sendOtp",sendOtp);
+router.get("/document-verification-status", Drivermiddleware, getDocumentVerificationStatus);
 export default router;

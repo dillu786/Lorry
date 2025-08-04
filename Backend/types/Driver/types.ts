@@ -35,3 +35,44 @@ export const makeDriverOnlineSchema = z.object({
     Latitude: z.string(),
     Longitude: z.string()
 })
+
+// DocumentImageKey type for DriverDocument table - references Driver table image fields
+export const DocumentImageKeySchema = z.enum([
+    "FrontSideAdhaarImage",
+    "BackSideAdhaarImage", 
+    "DrivingLicenceFrontImage",
+    "DrivingLicenceBackImage",
+    "PanImage"
+])
+
+export type DocumentImageKey = z.infer<typeof DocumentImageKeySchema>
+
+// Schema for creating/updating driver documents
+export const createDriverDocumentSchema = z.object({
+    driverId: z.number(),
+    DocumentImageKey: DocumentImageKeySchema,
+    IsApproved: z.boolean().default(false)
+})
+
+export const updateDriverDocumentSchema = z.object({
+    id: z.string(),
+    IsApproved: z.boolean().optional()
+})
+
+// Schema for checking driver document verification status
+export const driverDocumentVerificationSchema = z.object({
+    IsDLFrontImageVerified: z.boolean(),
+    IsDLBackImageVerified: z.boolean(),
+    IsFSAdhaarImgVerified: z.boolean(),
+    IsBSAdhaarImgVerified: z.boolean(),
+    IsPanImgVerified: z.boolean()
+})
+
+// Utility function to check if all documents are verified
+export const areAllDocumentsVerified = (driver: any): boolean => {
+    return driver.IsDLFrontImageVerified && 
+           driver.IsDLBackImageVerified && 
+           driver.IsFSAdhaarImgVerified && 
+           driver.IsBSAdhaarImgVerified && 
+           driver.IsPanImgVerified;
+}

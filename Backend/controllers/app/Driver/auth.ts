@@ -29,6 +29,15 @@ export const signIn = async (req:Request, res: Response): Promise<any> =>{
       return res.status(411).json(responseObj(false,null,"Mobile number does not exist"));
     }
 
+    // Check if all documents are verified
+    if (!driver.IsDLFrontImageVerified || 
+        !driver.IsDLBackImageVerified || 
+        !driver.IsFSAdhaarImgVerified || 
+        !driver.IsBSAdhaarImgVerified || 
+        !driver.IsPanImgVerified) {
+      return res.status(403).json(responseObj(false, null, "Login failed: All documents must be verified before login"));
+    }
+
     const passwordMatched = await bcrypt.compare(parsedBody.data?.password as string ,driver.Password as string);
     if (passwordMatched){
         const token = jwt.sign(driver,process.env.JWT_SECRET_DRIVER as string);
@@ -202,6 +211,18 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
         })
   
       }
+
+      // Check if all documents are verified
+      if (!user.IsDLFrontImageVerified || 
+          !user.IsDLBackImageVerified || 
+          !user.IsFSAdhaarImgVerified || 
+          !user.IsBSAdhaarImgVerified || 
+          !user.IsPanImgVerified) {
+        return res.status(403).json({
+          message: "Login failed: All documents must be verified before login"
+        });
+      }
+
       await prisma.otp.delete({
         where:{
           MobileNumber:parsedBody.data.MobileNumber
@@ -268,6 +289,47 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
   catch(error: any){
     return res.status(500).json(responseObj(false,null,"Something went wrong"+error,error));
   }
+}
 
+// Get driver document verification status
+export const getDocumentVerificationStatus = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const driverId = req.user?.user?.Id;
+    
+    if (!driverId) {
+      return res.status(400).json(responseObj(false, null, "Driver ID is required"));
+    }
 
+    const driver = await prisma.driver.findUnique({
+      where: { Id: driverId },
+      select: {
+        IsDLFrontImageVerified: true,
+        IsDLBackImageVerified: true,
+        IsFSAdhaarImgVerified: true,
+        IsBSAdhaarImgVerified: true,
+        IsPanImgVerified: true
+      }
+    });
+
+    if (!driver) {
+      return res.status(404).json(responseObj(false, null, "Driver not found"));
+    }
+
+    const verificationStatus = {
+      drivingLicenseFront: driver.IsDLFrontImageVerified,
+      drivingLicenseBack: driver.IsDLBackImageVerified,
+      frontSideAdhaar: driver.IsFSAdhaarImgVerified,
+      backSideAdhaar: driver.IsBSAdhaarImgVerified,
+      panImage: driver.IsPanImgVerified,
+      allVerified: driver.IsDLFrontImageVerified && 
+                   driver.IsDLBackImageVerified && 
+                   driver.IsFSAdhaarImgVerified && 
+                   driver.IsBSAdhaarImgVerified && 
+                   driver.IsPanImgVerified
+    };
+
+    return res.status(200).json(responseObj(true, verificationStatus, "Document verification status retrieved successfully"));
+  } catch (error: any) {
+    return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
+  }
 }
