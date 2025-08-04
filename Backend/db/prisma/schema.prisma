@@ -87,7 +87,12 @@ model Driver {
   DriverOwner            OwnerDriver[]
   DriverWallet           DriverWallet?  // Optional Wallet
   Bookings               Bookings[]
-  FareNegotiations      FareNegotiation[]
+  FareNegotiations       FareNegotiation[]
+  IsDLFrontImageVerified Boolean @default(false)
+  IsDLBackImageVerified  Boolean @default(false)
+  IsFSAdhaarImgVerified  Boolean @default(false)
+  IsBSAdhaarImgVerified  Boolean @default(false)
+  IsPanImgVerified       Boolean @default(false)
 }
 
 model Vehicle {
@@ -232,6 +237,7 @@ enum VehicleType {
   HCV
 }
 
+
 enum NegotiationStatus{
   Pending
   Accepted
@@ -362,6 +368,7 @@ enum AuditActionType {
   ROLE_UPDATE
   ROLE_DELETE
 }
+
 
 model PermissionAuditLog {
   id              String          @id @default(cuid())
