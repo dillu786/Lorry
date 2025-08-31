@@ -388,7 +388,12 @@ export const getDriverDetails = async (req: Request, res: Response): Promise<any
                 DrivingLicenceFrontImage: true,
                 DriverOwner: {
                     select: {
-                        OwnerId: true
+                        OwnerId: true,
+                        Owner:{
+                            select: {
+                                Name: true
+                            }
+                        }
                     }
                 },
                 DriverVehicles: {
