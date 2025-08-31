@@ -239,7 +239,9 @@ export const getUserBookingHistory = async (req:Request, res:Response): Promise<
         const bookings = await prisma.bookings.findMany({
             where:{
                 UserId: Number(user.Id),
-                Status: "Completed"
+                Status: {
+                    in: ["Completed", "Cancelled"]
+                }
             },
            
             include:{
