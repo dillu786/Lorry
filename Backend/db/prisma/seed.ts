@@ -87,6 +87,12 @@ async function main() {
     { name: "Delete Users", code: "users:delete", description: "Can delete users", categoryName: "Users" },
     { name: "Block Users", code: "users:block", description: "Can block users", categoryName: "Users" },
 
+    // Admin Users permissions
+    { name: "View Admin Users", code: "admin-users:view", description: "Can view all admin users", categoryName: "Users" },
+    { name: "Create Admin Users", code: "admin-users:create", description: "Can create new admin users", categoryName: "Users" },
+    { name: "Edit Admin Users", code: "admin-users:edit", description: "Can edit admin user details", categoryName: "Users" },
+    { name: "Delete Admin Users", code: "admin-users:delete", description: "Can delete admin users", categoryName: "Users" },
+
     // Drivers permissions
     { name: "View Drivers", code: "drivers:view", description: "Can view all drivers", categoryName: "Drivers" },
     { name: "Create Drivers", code: "drivers:create", description: "Can create new drivers", categoryName: "Drivers" },
