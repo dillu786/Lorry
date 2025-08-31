@@ -91,6 +91,9 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
         MobileNumber: parsedBody.data?.mobileNumber
       }
     });
+    if(user?.IsActive === false){
+      return res.status(411).json(responseObj(false,null,"User is not active"));
+    }
   
     if(!user){
       return res.status(401).json({
@@ -309,6 +312,9 @@ export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> 
           MobileNumber: parsedBody.data.MobileNumber
         }
       })
+      if(user?.IsActive === false){
+        return res.status(411).json(responseObj(false,null,"User account is not active"));
+      }
   
       if(!user){       
         return res.status(400).json({

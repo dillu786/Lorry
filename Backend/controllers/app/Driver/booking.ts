@@ -16,12 +16,11 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
       const driverLongitude = parseFloat(req.query.driverLongitude as string);
   
       if (isNaN(driverLatitude) || isNaN(driverLongitude)) {
-        return res.status(400).json({ message: "Send valid driver latitude and longitude" });
+        return res.status(400).json(responseObj(false, null, "Send valid driver latitude and longitude"));
       }
   
-      const offset = (page - 1) * limit;
-  
-      const bookings = await prisma.bookings.findMany({
+      // Fetch all pending bookings without fare negotiations
+      const allBookings = await prisma.bookings.findMany({
         where: {
           Status: 'Pending',
           FareNegotiations: {
@@ -35,12 +34,12 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
                     MobileNumber:true
                 }
             }
-        }
-        // orderBy: { UpdatedDateTime: 'desc' },
-        // skip: (page - 1) * limit,
-        // take: limit
+        },
+        orderBy: { CreatedDateTime: 'desc' }
       });
-      const filteredBookings = bookings.filter((booking) => {
+
+      // Filter bookings within 20km radius
+      const filteredBookings = allBookings.filter((booking) => {
         const distance = haversineDistance(
           driverLatitude,
           driverLongitude,
@@ -49,9 +48,25 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
         );
         return distance <= 20;
       });
+
+      // Apply pagination to filtered results
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
       
+      const totalCount = filteredBookings.length;
+      const totalPages = Math.ceil(totalCount / limit);
       
-      return res.status(200).json(responseObj(true, bookings, "Successfully fetched"));
+      return res.status(200).json(responseObj(true, {
+        bookings: paginatedBookings,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalCount,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      }, "Successfully fetched"));
     } catch (error) {
       console.error("Error in newBookings:", error);
       return res.status(500).json(responseObj(false, null, "Something went wrong"));

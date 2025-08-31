@@ -24,6 +24,9 @@ export const signIn = async (req:Request, res: Response): Promise<any> =>{
         MobileNumber: parsedBody.data?.mobileNumber
       }
     })
+    if(driver?.IsActive === false){
+      return res.status(411).json(responseObj(false,null,"Driver is not active"));
+    }
 
     if(!driver){
       return res.status(411).json(responseObj(false,null,"Mobile number does not exist"));

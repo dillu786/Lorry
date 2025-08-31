@@ -135,9 +135,30 @@ export const assignVehicleToDriver = async (req: Request, res: Response): Promis
   
       const { driverId, vehicleId } = parsedBody.data;
   
-      const [vehicleExists, driverExists] = await Promise.all([
+      const [vehicleExists, driverExists, existingAssignment, vehicleAssignedToOtherDriver] = await Promise.all([
         prisma.vehicle.findFirst({ where: { Id: vehicleId } }),
-        prisma.driver.findFirst({ where: { Id: driverId } })
+        prisma.driver.findFirst({ where: { Id: driverId } }),
+        prisma.driverVehicle.findFirst({ 
+          where: { 
+            DriverId: driverId,
+            VehicleId: vehicleId
+          } 
+        }),
+        prisma.driverVehicle.findFirst({
+          where: {
+            VehicleId: vehicleId,
+            DriverId: {
+              not: driverId
+            }
+          },
+          include: {
+            Driver: {
+              select: {
+                Name: true
+              }
+            }
+          }
+        })
       ]);
   
       if (!vehicleExists) {
@@ -148,15 +169,18 @@ export const assignVehicleToDriver = async (req: Request, res: Response): Promis
         return res.status(400).json(responseObj(false, null, "driverId does not exist"));
       }
   
-      await prisma.driverVehicle.upsert({
-        where: {
-          DriverId_VehicleId: {
-            DriverId: driverId,
-            VehicleId: vehicleId
-          }
-        },
-        update: {}, // Nothing to update if already exists
-        create: {
+      // Check if vehicle is already assigned to this driver
+      if (existingAssignment) {
+        return res.status(400).json(responseObj(false, null, "Vehicle is already assigned to this driver"));
+      }
+
+      // Check if vehicle is already assigned to another driver
+      if (vehicleAssignedToOtherDriver) {
+        return res.status(400).json(responseObj(false, null, `Vehicle is already assigned to driver: ${vehicleAssignedToOtherDriver.Driver.Name}`));
+      }
+  
+      await prisma.driverVehicle.create({
+        data: {
           DriverId: driverId,
           VehicleId: vehicleId
         }
