@@ -371,7 +371,7 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
 
 export const getCustomerDetails = async (req:Request, res: Response): Promise<any>=>{
 
-    const customerId = req.user.Id;
+    const customerId = req.user.user.Id;
 
     try{
 
