@@ -2,17 +2,7 @@ import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { responseObj } from '../../../utils/response';
 
-// Extend Request type to include user property with Id
-declare global {
-    namespace Express {
-        interface Request {
-            user: {
-                Id: number;
-                [key: string]: any;
-            }
-        }
-    }
-}
+
 
 const prisma = new PrismaClient();
 
@@ -21,7 +11,8 @@ export const getCurrentBooking = async (req: Request, res: Response): Promise<an
 
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 5;
-        const ownerId = req.user.Id;
+        const ownerId = req.user?.user.Id;
+
         const allDrivers = await prisma.ownerDriver.findMany({
             where: {
                 OwnerId: ownerId
@@ -38,6 +29,19 @@ export const getCurrentBooking = async (req: Request, res: Response): Promise<an
                 DriverId: { in: allDrivers.map(driver => driver.Id) },
                 Status: {
                     in: ["Pending", "Pending"]
+                }
+            },
+            include:{
+                Driver: {
+                    select: {
+                        Name: true,
+                        MobileNumber: true
+                    }
+                },
+                User:{
+                    select:{
+                        Name: true
+                    }
                 }
             },
             orderBy: {
@@ -58,7 +62,7 @@ export const getLiveBooking = async (req: Request, res: Response): Promise<any> 
     try {
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 5;
-        const ownerId = req.user.Id;
+        const ownerId = req.user?.user.Id;
         const allDrivers = await prisma.ownerDriver.findMany({
             where: {
                 OwnerId: ownerId
@@ -72,6 +76,26 @@ export const getLiveBooking = async (req: Request, res: Response): Promise<any> 
             where: {
                 DriverId: { in: allDrivers.map(driver => driver.DriverId) },
                 Status: "Ongoing"
+            },
+            include: {
+                Driver: {
+                    include: {
+                        DriverOwner: {
+                            include: {
+                                Owner: {
+                                    select: {
+                                        Name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                User: {
+                    select: {
+                        Name: true
+                    }
+                }
             },
             orderBy: {
                 CreatedDateTime: "desc"
@@ -92,7 +116,7 @@ export const getCompletedBooking = async (req: Request, res: Response): Promise<
 
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 5
-        const ownerId = req.user.Id;
+        const ownerId = req.user?.user.Id;
         const allDrivers = await prisma.ownerDriver.findMany({
             where: {
                 OwnerId: ownerId
@@ -111,9 +135,16 @@ export const getCompletedBooking = async (req: Request, res: Response): Promise<
             },
             include:{
                 Driver:{
-                    select:{
-                        Name: true,
-                        MobileNumber: true
+                    include: {
+                        DriverOwner: {
+                            include: {
+                                Owner: {
+                                    select: {
+                                        Name: true
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 User:{

@@ -95,6 +95,11 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
                         Name:true  
                     }
                 },
+                User:{
+                    select:{
+                        Name:true
+                    }
+                },
                 Vehicle:{
                   select:{
                     Model: true
