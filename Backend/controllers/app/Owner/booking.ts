@@ -11,7 +11,7 @@ export const getCurrentBooking = async (req: Request, res: Response): Promise<an
 
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 5;
-        const ownerId = req.user?.user.Id;
+        const ownerId = req.user.Id;
 
         const allDrivers = await prisma.ownerDriver.findMany({
             where: {
@@ -62,7 +62,8 @@ export const getLiveBooking = async (req: Request, res: Response): Promise<any> 
     try {
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 5;
-        const ownerId = req.user?.user.Id;
+        const ownerId = req.user.Id;
+        console.log(`ownerId ${ownerId}`);
         const allDrivers = await prisma.ownerDriver.findMany({
             where: {
                 OwnerId: ownerId
@@ -115,8 +116,9 @@ export const getCompletedBooking = async (req: Request, res: Response): Promise<
     try {
 
         const page = Number(req.query.page) || 1;
-        const limit = Number(req.query.limit) || 5
-        const ownerId = req.user?.user.Id;
+        const limit = Number(req.query.limit) || 5;
+        console.log(`req.user ${JSON.stringify(req.user)}`);
+        const ownerId = req.user.Id;
         const allDrivers = await prisma.ownerDriver.findMany({
             where: {
                 OwnerId: ownerId
