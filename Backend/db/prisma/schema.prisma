@@ -393,4 +393,20 @@ model PermissionAuditLog {
   @@map("permission_audit_logs")
 }
 
+model AccountDeletionAudit {
+  id              String   @id @default(cuid())
+  userType        String   // "CUSTOMER", "DRIVER", "OWNER"
+  userId          Int      // ID of the deleted user/driver/owner
+  mobileNumber    String   // Mobile number of deleted account
+  deletionReason  String   // Reason provided for deletion
+  deletedAt       DateTime @default(now())
+  deletedBy       String?  // Optional: who performed the deletion (admin/system)
+
+  @@index([userType])
+  @@index([userId])
+  @@index([mobileNumber])
+  @@index([deletedAt])
+  @@map("account_deletion_audit")
+}
+
   

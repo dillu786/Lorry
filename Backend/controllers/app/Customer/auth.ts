@@ -352,3 +352,61 @@ export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> 
   }
     
 };
+
+export const deleteAccount = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { deletionReason } = req.body;
+    console.log("delete account");
+    
+    if (!deletionReason) {
+      return res.status(400).json(responseObj(false, null, "Deletion reason is required"));
+    }
+
+    //@ts-ignore
+    const authPayload = req.user || {};
+    const userId: number | undefined = authPayload?.Id || authPayload?.user?.Id;
+    const userMobile: string | undefined = authPayload?.MobileNumber || authPayload?.user?.MobileNumber;
+
+    if (!userId) {
+      return res.status(400).json(responseObj(false, null, "Unable to determine user from token"));
+    }
+
+    const user = await prisma.user.findUnique({ where: { Id: userId } });
+
+    if (!user) {
+      return res.status(404).json(responseObj(false, null, "User not found"));
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Store deletion audit record
+      await tx.accountDeletionAudit.create({
+        data: {
+          userType: "CUSTOMER",
+          userId: user.Id,
+          mobileNumber: user.MobileNumber,
+          deletionReason: deletionReason,
+          deletedBy: "SYSTEM" // You can modify this to capture admin info if needed
+        }
+      });
+
+      const userBookings = await tx.bookings.findMany({
+        where: { UserId: user.Id },
+        select: { Id: true }
+      });
+      const bookingIds = userBookings.map((b) => b.Id);
+
+      if (bookingIds.length > 0) {
+        await tx.fareNegotiation.deleteMany({ where: { BookingId: { in: bookingIds } } });
+      }
+
+      await tx.bookings.deleteMany({ where: { UserId: user.Id } });
+      await tx.userWallet.deleteMany({ where: { UserId: user.Id } });
+      await tx.otp.deleteMany({ where: { MobileNumber: user.MobileNumber } });
+      await tx.user.delete({ where: { Id: user.Id } });
+    });
+
+    return res.status(200).json(responseObj(true, null, "Customer account and related data deleted"));
+  } catch (error: any) {
+    return res.status(500).json(responseObj(false, null, "Something went wrong" + error));
+  }
+}

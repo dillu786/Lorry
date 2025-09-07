@@ -3,8 +3,9 @@ import { Driver } from '@prisma/client';
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        user: Driver;
+      user: {
+        Id: number;
+        [key: string]: any;
       };
       driverDocumentStatus?: {
         IsDLFrontImageVerified: boolean;

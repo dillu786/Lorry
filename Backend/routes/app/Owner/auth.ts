@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { resetPassword,verifyOtpOnPasswordReset, sendOtp,verifyOTP } from "../../../controllers/app/Owner/auth";
+import { resetPassword,verifyOtpOnPasswordReset, sendOtp,verifyOTP, deleteAccount } from "../../../controllers/app/Owner/auth";
 import { OwnerMiddleware } from "../../../middlewares/middleware";
 import { uploadDocument } from "../../../controllers/app/Owner/auth";
 import { signUp,signIn,register } from "../../../controllers/app/Owner/auth";
@@ -28,4 +28,5 @@ router.post("/uploadDoc",OwnerMiddleware,
     {name: 'Pan',maxCount:1}
 ]),
 uploadDocument);
+router.delete("/delete-account", OwnerMiddleware, deleteAccount);
 export default router;

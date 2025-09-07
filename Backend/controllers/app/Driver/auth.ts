@@ -336,3 +336,61 @@ export const getDocumentVerificationStatus = async (req: Request, res: Response)
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
   }
 }
+
+export const deleteAccount = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { deletionReason } = req.body;
+
+    if (!deletionReason) {
+      return res.status(400).json(responseObj(false, null, "Deletion reason is required"));
+    }
+
+    //@ts-ignore
+    const authPayload = req.user || {};
+    const driverId: number | undefined = authPayload?.Id || authPayload?.user?.Id;
+    const driverMobile: string | undefined = authPayload?.MobileNumber || authPayload?.user?.MobileNumber;
+
+    if (!driverId) {
+      return res.status(400).json(responseObj(false, null, "Unable to determine driver from token"));
+    }
+
+    const driver = await prisma.driver.findUnique({ where: { Id: driverId } });
+
+    if (!driver) {
+      return res.status(404).json(responseObj(false, null, "Driver not found"));
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Store deletion audit record
+      await tx.accountDeletionAudit.create({
+        data: {
+          userType: "DRIVER",
+          userId: driver.Id,
+          mobileNumber: driver.MobileNumber,
+          deletionReason: deletionReason,
+          deletedBy: "SYSTEM" // You can modify this to capture admin info if needed
+        }
+      });
+
+      const driverBookings = await tx.bookings.findMany({
+        where: { DriverId: driver.Id },
+        select: { Id: true }
+      });
+      const bookingIds = driverBookings.map((b) => b.Id);
+      if (bookingIds.length > 0) {
+        await tx.fareNegotiation.deleteMany({ where: { BookingId: { in: bookingIds } } });
+      }
+
+      await tx.bookings.updateMany({ where: { DriverId: driver.Id }, data: { DriverId: null } });
+      await tx.driverVehicle.deleteMany({ where: { DriverId: driver.Id } });
+      await tx.ownerDriver.deleteMany({ where: { DriverId: driver.Id } });
+      await tx.driverWallet.deleteMany({ where: { DriverId: driver.Id } });
+      await tx.otp.deleteMany({ where: { MobileNumber: driver.MobileNumber } });
+      await tx.driver.delete({ where: { Id: driver.Id } });
+    });
+
+    return res.status(200).json(responseObj(true, null, "Driver account and related data deleted"));
+  } catch (error: any) {
+    return res.status(500).json(responseObj(false, null, "Something went wrong" + error));
+  }
+}

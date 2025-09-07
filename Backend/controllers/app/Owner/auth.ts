@@ -525,3 +525,77 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 };
 
 
+export const deleteAccount = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { deletionReason } = req.body;
+
+    if (!deletionReason) {
+      return res.status(400).json(responseObj(false, null, "Deletion reason is required"));
+    }
+
+    //@ts-ignore
+    const authPayload = req.user || {};
+    const ownerId: number | undefined = authPayload?.Id || authPayload?.user?.Id;
+    const ownerMobile: string | undefined = authPayload?.MobileNumber || authPayload?.user?.MobileNumber;
+
+    if (!ownerId) {
+      return res.status(400).json(responseObj(false, null, "Unable to determine owner from token"));
+    }
+
+    const owner = await prisma.owner.findUnique({ where: { Id: ownerId } });
+
+    if (!owner) {
+      return res.status(404).json(responseObj(false, null, "Owner not found"));
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Store deletion audit record
+      await tx.accountDeletionAudit.create({
+        data: {
+          userType: "OWNER",
+          userId: owner.Id,
+          mobileNumber: owner.MobileNumber,
+          deletionReason: deletionReason,
+          deletedBy: "SYSTEM" // You can modify this to capture admin info if needed
+        }
+      });
+
+      // Remove negotiations for this owner
+      await tx.fareNegotiation.deleteMany({ where: { OwnerId: owner.Id } });
+
+      // Find vehicles owned by this owner
+      const ownerVehicles = await tx.ownerVehicle.findMany({
+        where: { OwnerId: owner.Id },
+        select: { VehicleId: true }
+      });
+      const vehicleIds = ownerVehicles.map((ov) => ov.VehicleId);
+
+      if (vehicleIds.length > 0) {
+        // Clear bookings referencing these vehicles
+        await tx.bookings.updateMany({ where: { VehicleId: { in: vehicleIds } }, data: { VehicleId: null, DriverId: null } });
+        // Remove driver assignments to these vehicles
+        await tx.driverVehicle.deleteMany({ where: { VehicleId: { in: vehicleIds } } });
+        // Remove owner-vehicle links
+        await tx.ownerVehicle.deleteMany({ where: { VehicleId: { in: vehicleIds } } });
+        // Finally delete vehicles themselves
+        await tx.vehicle.deleteMany({ where: { Id: { in: vehicleIds } } });
+      }
+
+      // Remove owner-driver links
+      await tx.ownerDriver.deleteMany({ where: { OwnerId: owner.Id } });
+
+      // Remove wallet
+      await tx.ownerWallet.deleteMany({ where: { OwnerId: owner.Id } });
+
+      // Remove OTPs
+      await tx.otp.deleteMany({ where: { MobileNumber: owner.MobileNumber } });
+
+      // Delete owner
+      await tx.owner.delete({ where: { Id: owner.Id } });
+    });
+
+    return res.status(200).json(responseObj(true, null, "Owner account and related data deleted"));
+  } catch (error: any) {
+    return res.status(500).json(responseObj(false, null, "Something went wrong" + error));
+  }
+}
