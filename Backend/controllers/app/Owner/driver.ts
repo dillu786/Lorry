@@ -16,115 +16,146 @@ import { getObjectSignedUrl } from "../../../utils/s3utils";
 const prisma= new PrismaClient();
 const app = express();
 app.use(express.json());
-export const addDriver = async (req:Request,res:Response):Promise<any>=>{
-     console.log("reached addDriver");
-     console.log(req.files);
-     console.log(req.body);
-    try{
-        const parsedBody = addDriverSchema.safeParse(req.body);
-        if(!parsedBody.success){
-            res.status(411).json({
-                message: "Incorrect Input"+parsedBody.error,
-            })
-        }
-       const driverExist =await prisma.driver.findMany({
-        where:{
-            OR:[
-                {AdhaarCardNumber: parsedBody.data?.AadharNumber},
-                {PanNumber: parsedBody.data?.PanNumber},
-                {MobileNumber: parsedBody.data?.MobileNumber}
-            ]
-        }
-       })
-       if(driverExist.length>0){
-        return res.status(411).json({
-            message: "Aadhar/Pan/MobileNumber already exist"
-        });
-       }
-     //@ts-ignore
-     if (!req.files || !req.files['aadharImageFront'] || !req.files['aadharImageBack'] || !req.files["licenseImageFront"]|| !req.files["licenseImageBack"]|| !req.files["driverImage"]) {
-        return res.status(400).json({ error: 'Missing required image files' });
-      }
-      //@ts-ignore
-      const aadharImageFront = req.files["aadharImageFront"][0];
-      //@ts-ignore
-      const aadharImageBack = req.files["aadharImageBack"][0];
-      //@ts-ignore
-      const driverIamge = req.files["driverImage"][0];
-      //@ts-ignore
-      const licenseImageFront = req.files["licenseImageFront"][0];
-      //@ts-ignore
-      const licenseImageBack = req.files["licenseImageBack"][0];
-      //@ts-ignore
-      //const panImage = req.files["panImage"][0];
-    
-      const aadharImageFrontName = generateFileName();
-      const aadharImageBackName = generateFileName();
-      const licenseImageBackName = generateFileName();
-      const licenseImageFrontName = generateFileName();
-      const driverIamgeName = generateFileName();
-      let panImageName ;
+export const addDriver = async (req: Request, res: Response): Promise<any> => {
+  console.log("reached addDriver");
+  console.log(req.files);
+  console.log(req.body);
 
-      //@ts-ignore
-      if(req.files['panImage'] ){
-        console.log(`control reaced inside`)
+  try {
+    const parsedBody = addDriverSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(411).json({
+        message: "Incorrect Input " + parsedBody.error,
+      });
+    }
+
+    // Check if driver already exists
+    const driverExist = await prisma.driver.findMany({
+      where: {
+        OR: [
+          { AdhaarCardNumber: parsedBody.data?.AadharNumber },
+          { PanNumber: parsedBody.data?.PanNumber },
+          { MobileNumber: parsedBody.data?.MobileNumber },
+        ],
+      },
+    });
+
+    if (driverExist.length > 0) {
+      return res.status(411).json({
+        message: "Aadhar/Pan/MobileNumber already exist",
+      });
+    }
+
+    // Check only required files
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    if (
+      !files ||
+      !files["licenseImageFront"] ||
+      !files["licenseImageBack"] ||
+      !files["driverImage"]
+    ) {
+      return res.status(400).json({ error: "Missing required image files" });
+    }
+
+    // Required files
+    const driverImage = files["driverImage"][0];
+    const licenseImageFront = files["licenseImageFront"][0];
+    const licenseImageBack = files["licenseImageBack"][0];
+
+    // File names
+    const driverImageName = generateFileName();
+    const licenseImageFrontName = generateFileName();
+    const licenseImageBackName = generateFileName();
+
+    // Upload required
+    await uploadFile(driverImage.buffer, driverImageName, driverImage.mimetype);
+    await uploadFile(
+      licenseImageFront.buffer,
+      licenseImageFrontName,
+      licenseImageFront.mimetype
+    );
+    await uploadFile(
+      licenseImageBack.buffer,
+      licenseImageBackName,
+      licenseImageBack.mimetype
+    );
+
+    // Optional Aadhaar images
+    let aadharImageFrontName: string | null = null;
+    let aadharImageBackName: string | null = null;
+
+    if (files["aadharImageFront"]) {
+      const aadharFront = files["aadharImageFront"][0];
+      aadharImageFrontName = generateFileName();
+      await uploadFile(
+        aadharFront.buffer,
+        aadharImageFrontName,
+        aadharFront.mimetype
+      );
+    }
+
+    if (files["aadharImageBack"]) {
+      const aadharBack = files["aadharImageBack"][0];
+      aadharImageBackName = generateFileName();
+      await uploadFile(
+        aadharBack.buffer,
+        aadharImageBackName,
+        aadharBack.mimetype
+      );
+    }
+
+    // Optional Pan image
+    let panImageName: string | null = null;
+    if (files["panImage"]) {
+      const panImage = files["panImage"][0];
+      panImageName = generateFileName();
+      await uploadFile(panImage.buffer, panImageName, panImage.mimetype);
+    }
+
+    // Password encrypt
+    const encryptedPassword = await bcrypt.hash(
+      parsedBody.data?.Password as string,
+      2
+    );
+
+    // Save driver
+    const driver = await prisma.driver.create({
+      data: {
+        Name: parsedBody.data?.Name,
+        DrivingLicenceNumber: parsedBody.data?.DrivingLicense as string,
+        DriverImage: driverImageName,
+        Password: encryptedPassword,
+        PanNumber: parsedBody.data?.PanNumber as string,
+        AdhaarCardNumber: parsedBody.data?.AadharNumber as string,
+        FrontSideAdhaarImage: aadharImageFrontName as any, // can be null
+        BackSideAdhaarImage: aadharImageBackName as any, // can be null
+        DrivingLicenceBackImage: licenseImageBackName,
+        DrivingLicenceFrontImage: licenseImageFrontName,
+        Gender: parsedBody.data?.Gender as unknown as any,
+        PanImage: panImageName as any, // can be null
+        MobileNumber: parsedBody.data?.MobileNumber as any,
+      },
+    });
+
+    // Link driver to owner
+    await prisma.ownerDriver.create({
+      data: {
         //@ts-ignore
-        
-        const panImage = req.files["panImage"][0];
-         panImageName = generateFileName();
-        await uploadFile(panImage.buffer,panImageName,panImage.mimetype);
-      }
-     
-    
-      await uploadFile(aadharImageFront.buffer,aadharImageFrontName,aadharImageFront.mimetype);
-      await uploadFile(aadharImageBack.buffer,aadharImageBackName,aadharImageBack.mimetype);
-      await uploadFile(licenseImageFront.buffer,licenseImageFrontName,licenseImageFront.mimetype);
-      await uploadFile(licenseImageBack.buffer,licenseImageBackName,licenseImageBack.mimetype);
-      await uploadFile(driverIamge.buffer,driverIamgeName,driverIamge.mimetype);
-     
+        OwnerId: req.user.Id,
+        DriverId: driver.Id,
+      },
+    });
 
-      //const driverPassword = generatePassword();
-      const encryptedPassword = await bcrypt.hash(parsedBody.data?.Password as string,2);
-      
-      const driver = await prisma.driver.create({
-        data:{
-            Name: parsedBody.data?.Name,
-            DrivingLicenceNumber: parsedBody.data?.DrivingLicense as string,
-            DriverImage: driverIamgeName,
-            Password: encryptedPassword,
-            PanNumber: parsedBody.data?.PanNumber as string,
-            AdhaarCardNumber: parsedBody.data?.AadharNumber as string,
-            FrontSideAdhaarImage: aadharImageFrontName,
-            BackSideAdhaarImage: aadharImageBackName,
-            DrivingLicenceBackImage: licenseImageBackName,
-            DrivingLicenceFrontImage: licenseImageFrontName,
-            Gender: parsedBody.data?.Gender as unknown as any,
-            PanImage: panImageName as any,
-            MobileNumber: parsedBody.data?.MobileNumber as any
-        }
-      })
-    
-      await prisma.ownerDriver.create({
-        data:{
-            //@ts-ignore
-            OwnerId: req.user.Id,
-            DriverId: driver.Id
-        }
-      })
+    res.status(200).json({
+      message: "Driver added successfully",
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      message: "Something went wrong " + error,
+    });
+  }
+};
 
-      res.status(200).json({
-        message :"Driver added successfully"
-      })
-    }
-
-    catch(error:any){
-        res.status(500).json({
-            message: "Something went wrong"+error
-            
-        })
-    }
-    
-}
 
 export const assignVehicleToDriver = async (req: Request, res: Response): Promise<any> => {
     try {
