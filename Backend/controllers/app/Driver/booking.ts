@@ -231,6 +231,18 @@ export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
     export const startTrip = async (req:Request, res: Response):Promise<any> =>{
 
         try{
+            const driverId = req.user.Id;
+             const TripOngoing = await prisma.bookings.findFirst({
+                where:{
+
+                    DriverId: driverId,
+                    Status: "Ongoing"
+                }
+             })
+
+             if(TripOngoing){
+                return res.status(411).json(responseObj(false,null,"One Trip already ongoing"));
+             }
             const bookingId = req.query.bookingId as string;
 
             const booking = await prisma.bookings.findFirst({
