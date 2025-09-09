@@ -18,29 +18,12 @@ const prisma = new PrismaClient();
 
 const connectedDrivers = new Map<string, DriverLocation>();
 
-export const socketHandler = (io: Server) => {
-  io.on("connection", (socket: Socket) => {
-    console.log("Driver connected:", socket.id);
-
-    // 1. Store location sent by driver
-    socket.on("update_location", (location: DriverLocation) => {
-      connectedDrivers.set(socket.id, location);
-    });
-
-    // 2. Remove driver on disconnect
-    socket.on("disconnect", () => {
-      connectedDrivers.delete(socket.id);
-      console.log("Driver disconnected:", socket.id);
-    });
-  });
-};
-
 // 3. Emit to drivers within 20km of a pickup point
-export const notifyNearbyDrivers = ( ride: RideRequest) => {
+export const notifyNearbyDrivers = (ride: RideRequest) => {
   for (const [socketId, location] of connectedDrivers.entries()) {
     const distance = haversineDistance(ride.pickupLat, ride.pickupLng, location.lat, location.lng);
 
-    if (distance <= 20 || true) {
+    if (distance <= 20) {
       io.to(socketId).emit("new_ride_request", {
         ...ride,
         distance,
@@ -71,29 +54,34 @@ const io = new Server(server, {
   },
 });
 
-const drivers = new Map<string, { lat: number; lng: number }>(); // socketId -> { lat, lng }
+io.on("connection", (socket: Socket) => {
+  console.log("Driver connected:", socket.id);
 
-io.on("connection", (socket:any) => {
-  console.log("Driver connected", socket.id);
-
-  socket.on("update_location", (data: { lat: number; lng: number }) => {
-    // data = { lat: number, lng: number }
-    drivers.set(socket.id, data);
-    console.log("receivedd drivers location");
-    console.log(drivers);
+  // Store location sent by driver
+  socket.on("update_location", (location: DriverLocation) => {
+    connectedDrivers.set(socket.id, location);
+    console.log("Received driver location:", location);
   });
 
+  // Remove driver on disconnect
   socket.on("disconnect", () => {
-    drivers.delete(socket.id);
-    console.log("Driver disconnected", socket.id);
+    connectedDrivers.delete(socket.id);
+    console.log("Driver disconnected:", socket.id);
   });
 });
+
 
 // Start the server
 server.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
 
+export const notifyNegotiatedFare = () => {
+  io.emit("new_negotiated_fare", {
+    message: "New negotiated fare",
+  });
+  console.log("New negotiated fare");
+};
 
 async function main() {
   const fares = [

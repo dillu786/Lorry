@@ -5,6 +5,7 @@ import { acceptRideSchema, makeDriverOnlineSchema } from "../../../types/Driver/
 import { negotiateFareSchema } from "../../../types/Driver/types";
 import { getObjectSignedUrl, uploadFile,generateFileName } from "../../../utils/s3utils";
 import { haversineDistance } from "../../../utils/haversine";
+import { notifyNegotiatedFare } from "../../..";
 const prisma = new PrismaClient();
 
 export const newBookings = async (req: Request, res: Response): Promise<any> => {
@@ -521,7 +522,7 @@ export const negotiateFare = async (req:Request, res:Response): Promise<any> =>{
                     NegotiatedTime: new Date(Date.now())
                 }           
         })
-
+        notifyNegotiatedFare();
         res.status(200).json(responseObj(true,null,""));
     }   
     catch(error:any){
