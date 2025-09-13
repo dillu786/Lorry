@@ -55,7 +55,11 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
     
     const parsedBody = signInSechema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
   
     const owner = await prisma.owner.findFirst({
@@ -98,7 +102,11 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
   try{
     const parsedBody = signupSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
   
     const userData = await prisma.owner.findFirst({
@@ -298,7 +306,11 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     } 
     const savedOtp = await  prisma.otp.findFirst({
       where:{
@@ -345,7 +357,11 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
   
     const savedOtp = await  prisma.otp.findFirst({
@@ -405,7 +421,11 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
   try{
     const parsedBody = resetPasswordSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
     const owner = await prisma.owner.findFirst({
       where:{
@@ -444,7 +464,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     console.log(req.file);
     const parsedBody = registerSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
     //@ts-ignore
    if(req.user.mobileNumber!= parsedBody.data.phoneNumber){

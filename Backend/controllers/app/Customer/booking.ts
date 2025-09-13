@@ -173,12 +173,21 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
         const parsedBody = bookRideSchema.safeParse(req.body);
 
         if(!parsedBody.success){
-            return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any));
+            console.log(JSON.stringify(parsedBody.error.errors));
+            // Format error messages with field names for better user experience
+            const formattedErrors = parsedBody.error.errors.map(error => {
+                const fieldName = error.path.join('.');
+                return `${fieldName}: ${error.message}`;
+            });
+            console.log(formattedErrors);
+            return res.status(400).json(responseObj(false,null,"Please check the following fields",formattedErrors as any));
+
         }
         const  booking = await prisma.bookings.create({
             data:{
                 UserId: Number(user.Id),
                 Status: "Pending",
+                Weight: parsedBody.data?.Weight as string,
                 Product: parsedBody.data?.Product as string,
                 DropLocation: parsedBody.data?.DropLocation as string,
                 PickUpLocation: parsedBody.data?.PickUpLocation as string,

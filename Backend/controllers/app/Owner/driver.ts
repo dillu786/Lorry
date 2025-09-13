@@ -24,7 +24,11 @@ export const addDriver = async (req: Request, res: Response): Promise<any> => {
   try {
     const parsedBody = addDriverSchema.safeParse(req.body);
     if (!parsedBody.success) {
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
 
     // Check if driver already exists
@@ -153,7 +157,11 @@ export const assignVehicleToDriver = async (req: Request, res: Response): Promis
     try {
       const parsedBody = assignVehicleToDriverSchema.safeParse(req.body);
       if (!parsedBody.success) {
-        return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+        const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
       }
   
       const { driverId, vehicleId } = parsedBody.data;

@@ -27,7 +27,11 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
   try{
     const parsedBody = signupSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
   
     const userData = await prisma.user.findFirst({
@@ -79,7 +83,11 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
     
     const parsedBody =  signInSechema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
   
     const user = await prisma.user.findFirst({
@@ -126,7 +134,11 @@ export const createAccount = async (req:Request, res:Response):Promise<any>=>{
         const parsedBody = createAccountSchema.safeParse(req.body);
         
         if(!parsedBody.success){
-            return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any))
+            const formattedErrors = parsedBody.error.errors.map(error => {
+                const fieldName = error.path.join('.');
+                return `${fieldName}: ${error.message}`;
+            });
+            return res.status(400).json(responseObj(false,null,"Please check the following fields",formattedErrors as any))
         }
         
         const userExist = await prisma.user.findFirst({
@@ -227,7 +239,11 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     } 
     const savedOtp = await  prisma.otp.findFirst({
       where:{
@@ -283,7 +299,11 @@ export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> 
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
   
     if(parsedBody.data.MobileNumber === "7256013760" && parsedBody.data.Otp === "123456"){

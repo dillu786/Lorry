@@ -19,7 +19,8 @@ export const bookRideSchema = z.object({
     PaymentMode: z.enum(["CASH", "ONLINE"]),
     StartTime: z.string().datetime(),
     EndTime: z.string().datetime().optional(),
-    VehicleType: z.enum(Object.values(VehicleType) as [string, ...string[]])
+    VehicleType: z.enum(Object.values(VehicleType) as [string, ...string[]]),
+    Weight: z.string().optional()
 })
 
 export const negotiateFareSchema = z.object({

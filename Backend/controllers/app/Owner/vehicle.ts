@@ -126,7 +126,11 @@ export const addVehicle = async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       // If there's a validation error, send the validation error details
-      res.status(400).json(responseObj(false, null, 'Invalid input data', error.errors.map(error => error.message) as any));
+      const formattedErrors = error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      res.status(400).json(responseObj(false, null, 'Please check the following fields', formattedErrors as any));
     } else {
       // If it's another error, send a generic server error response
       console.error('Internal Server Error:', error); // Log the error for debugging
@@ -217,7 +221,11 @@ export const updateVehicleByVehicleId = async (req: Request, res: Response): Pro
   try {
     const parsedBody = updateVehicleSchema.safeParse(req.body);
     if (!parsedBody.success) {
-      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
+      const formattedErrors = parsedBody.error.errors.map(error => {
+        const fieldName = error.path.join('.');
+        return `${fieldName}: ${error.message}`;
+      });
+      return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
 
     const vehicleDetails = await prisma.vehicle.findFirst({
