@@ -47,9 +47,7 @@ export const addVehicle = async (req: Request, res: Response): Promise<any> => {
   const parsedBody = vehicleSchema.safeParse(req.body);
 
   if(!parsedBody.success){
-    return res.status(411).json({
-      message: "Incorrect Input"+parsedBody.error
-    })
+    return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(a=>a.message) as any));
   }
 
 
@@ -128,11 +126,11 @@ export const addVehicle = async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       // If there's a validation error, send the validation error details
-      res.status(400).json({ error: 'Invalid input data', details: error.errors });
+      res.status(400).json(responseObj(false, null, 'Invalid input data', error.errors.map(error => error.message) as any));
     } else {
       // If it's another error, send a generic server error response
       console.error('Internal Server Error:', error); // Log the error for debugging
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json(responseObj(false, null, 'Internal server error'));
     }
   }
 };
@@ -143,7 +141,7 @@ export const getAllVehiclesByOwnerId = async (req:Request, res:Response): Promis
 
     const ownerId = req.user.Id as number;
     if(ownerId == null || ownerId == undefined){
-      return res.status(411).json(responseObj(false,null,"Incorrect Input"));
+      return res.status(400).json(responseObj(false,null,"Invalid owner ID"));
     }
   
     const vehicles = await prisma.ownerVehicle.findMany({
@@ -181,7 +179,7 @@ export const getVehicleByVehicleId = async (req:Request, res: Response):Promise<
     console.log("req.query",req.query);
     console.log("vehicleId",vehicleId);
     if (vehicleId == null || vehicleId == undefined || vehicleId == ""){
-      return res.status(411).json(responseObj(false,null,"Incorrect Input"))
+      return res.status(400).json(responseObj(false,null,"Invalid vehicle ID"))
     }
   
     const vehicleDetails = await prisma.vehicle.findFirst({
@@ -219,7 +217,7 @@ export const updateVehicleByVehicleId = async (req: Request, res: Response): Pro
   try {
     const parsedBody = updateVehicleSchema.safeParse(req.body);
     if (!parsedBody.success) {
-      return res.status(411).json(responseObj(false, null, "Incorrect input", parsedBody.error as any));
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
 
     const vehicleDetails = await prisma.vehicle.findFirst({

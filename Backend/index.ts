@@ -5,6 +5,7 @@ import DriverRoutes from "./routes/app/Driver/index"
 import CustomerRoutes from "./routes/app/Cutomer/index"
 import type { Request,Response } from 'express';
 import http from "http"
+import cors from "cors"
 import { Server, Socket } from "socket.io";
 import type { DriverLocation, RideRequest } from "./types/Common/types";
 import { haversineDistance } from "./utils/haversine";
@@ -34,6 +35,34 @@ export const notifyNearbyDrivers = (ride: RideRequest) => {
 
 // Middleware to parse JSON requests
 app.use(express.json());
+
+// CORS configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001', 
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'https://returnlorrybackend.onrender.com'
+  // Add your production domains here
+  // 'https://yourdomain.com',
+  // 'https://www.yourdomain.com'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.get("/api",(req:Request, res:Response)=>{
     res.json({
        data: "Hello"
@@ -49,7 +78,7 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ["GET", "POST", "PATCH", "PUT", "OPTIONS", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     credentials: true
   },
 });

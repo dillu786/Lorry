@@ -27,9 +27,7 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
   try{
     const parsedBody = signupSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return  res.status(411).json({
-        message: "Incorrect Input"+parsedBody.error
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
   
     const userData = await prisma.user.findFirst({
@@ -81,9 +79,7 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
     
     const parsedBody =  signInSechema.safeParse(req.body);
     if(!parsedBody.success){
-      res.status(411).json({
-        message: "Incorrect input"
-      });
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
   
     const user = await prisma.user.findFirst({
@@ -92,7 +88,7 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
       }
     });
     if(user?.IsActive === false){
-      return res.status(411).json(responseObj(false,null,"User is not active"));
+      return res.status(403).json(responseObj(false,null,"User is not active"));
     }
   
     if(!user){
@@ -130,7 +126,7 @@ export const createAccount = async (req:Request, res:Response):Promise<any>=>{
         const parsedBody = createAccountSchema.safeParse(req.body);
         
         if(!parsedBody.success){
-            res.status(411).json(responseObj(false,null,"Incorrect input",parsedBody.error as any))
+            return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any))
         }
         
         const userExist = await prisma.user.findFirst({
@@ -139,7 +135,7 @@ export const createAccount = async (req:Request, res:Response):Promise<any>=>{
           }
         });
         if(userExist){
-          return res.status(411).json(responseObj(false,"Mobile Number already registered",parsedBody.error as any))
+          return res.status(409).json(responseObj(false,null,"Mobile Number already registered"))
         }
         const user =await prisma.user.create({
             data:{
@@ -164,9 +160,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<any> => {
   // Validate the request body using your schema
   const parsedBody = otpSchema.safeParse(req.body);
   if (!parsedBody.success) {
-    return res.status(411).json({
-      message: "Incorrect Input"+parsedBody.error.message
-    });
+    return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors));
   }
   const otp =   generateOTP();
   const otpExists = await prisma.otp.findFirst({
@@ -233,9 +227,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(411).json({
-        message : "Invalid Body"+parsedBody.error.message
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     } 
     const savedOtp = await  prisma.otp.findFirst({
       where:{
@@ -253,9 +245,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     }
  
     if(!savedOtp){
-      return res.status(411).json({
-        message : "Incorrect body"
-      })
+      return res.status(404).json(responseObj(false, null, "OTP not found or expired"));
     }
     if(savedOtp?.Otp === parsedBody.data.Otp){
       await prisma.otp.delete({
@@ -270,9 +260,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
 
     else{
 
-      return res.status(411).json({
-        message : "Entered Wrong OTP"
-      })
+      return res.status(401).json(responseObj(false, null, "Invalid OTP"));
     }
 
    
@@ -295,9 +283,7 @@ export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> 
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(411).json({
-        message : "Invalid Body"+parsedBody.error.message
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
   
     if(parsedBody.data.MobileNumber === "7256013760" && parsedBody.data.Otp === "123456"){
@@ -322,9 +308,7 @@ export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> 
     })
   
     if(!savedOtp){
-      return res.status(411).json({
-        message : "Incorrect body"
-      })
+      return res.status(404).json(responseObj(false, null, "OTP not found or expired"));
     }
   
     if(savedOtp?.Otp === parsedBody.data.Otp){
@@ -334,7 +318,7 @@ export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> 
         }
       })
       if(user?.IsActive === false){
-        return res.status(411).json(responseObj(false,null,"User account is not active"));
+        return res.status(403).json(responseObj(false,null,"User account is not active"));
       }
   
       if(!user){       
@@ -359,9 +343,7 @@ export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> 
       })
     }
     else{
-      return res.status(411).json({
-        message : "Entered Wrong OTP"
-      })
+      return res.status(401).json(responseObj(false, null, "Invalid OTP"));
     }
       
   }

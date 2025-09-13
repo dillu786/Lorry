@@ -55,9 +55,7 @@ export const signIn = async (req:Request, res:Response):Promise<any>=>{
     
     const parsedBody = signInSechema.safeParse(req.body);
     if(!parsedBody.success){
-      res.status(411).json({
-        message: "Incorrect input"
-      });
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
   
     const owner = await prisma.owner.findFirst({
@@ -100,9 +98,7 @@ export const signUp = async (req:Request,res:Response): Promise<any>=>{
   try{
     const parsedBody = signupSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return  res.status(411).json({
-        message: "Incorrect Input"+parsedBody.error
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
   
     const userData = await prisma.owner.findFirst({
@@ -154,9 +150,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<any> => {
   // Validate the request body using your schema
   const parsedBody = otpSchema.safeParse(req.body);
   if (!parsedBody.success) {
-    return res.status(411).json({
-      message: "Incorrect Input"+parsedBody.error.message
-    });
+    return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(a=>a.message)as any));
   }
   const otp = generateOTP();
   const otpExists = await prisma.otp.findFirst({
@@ -222,9 +216,7 @@ export const uploadDocument = async (req:Request, res:Response):Promise<any>=>{
     console.log("control reached 248");
     const parsedBody = uploadDocSchema.safeParse(req.body);
     if(!parsedBody.success){
-     return  res.status(411).json({
-       message: "Incorrect Input"
-     })
+     return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(a=>a.message) as any));
     }
    console.log("control reached here");
    const ownerExist = await prisma.owner.findMany({
@@ -239,9 +231,7 @@ export const uploadDocument = async (req:Request, res:Response):Promise<any>=>{
    });
    console.log("ownerExist",ownerExist);
    if( ownerExist.length>0){
-    return res.status(411).json({
-      message: "Aadhar Card Number and Pan Number already Exist"
-    });
+    return res.status(409).json(responseObj(false, null, "Aadhar Card Number or Pan Number already exists"));
 
    }
     //@ts-ignore
@@ -308,9 +298,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(411).json({
-        message : "Invalid Body"+parsedBody.error.message
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     } 
     const savedOtp = await  prisma.otp.findFirst({
       where:{
@@ -319,9 +307,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     })
   
     if(!savedOtp){
-      return res.status(411).json({
-        message : "Incorrect body"
-      })
+      return res.status(404).json(responseObj(false, null, "OTP not found or expired"));
     }
     if(savedOtp?.Otp === parsedBody.data.Otp){
       await prisma.otp.delete({
@@ -336,9 +322,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
 
     else{
 
-      return res.status(411).json({
-        message : "Entered Wrong OTP"
-      })
+      return res.status(401).json(responseObj(false, null, "Invalid OTP"));
     }
 
    
@@ -361,9 +345,7 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(411).json({
-        message : "Invalid Body"+parsedBody.error.message
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
   
     const savedOtp = await  prisma.otp.findFirst({
@@ -373,9 +355,7 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
     })
   
     if(!savedOtp){
-      return res.status(411).json({
-        message : "Incorrect body"
-      })
+      return res.status(404).json(responseObj(false, null, "OTP not found or expired"));
     }
   
     if(savedOtp?.Otp === parsedBody.data.Otp){
@@ -407,9 +387,7 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
       })
     }
     else{
-      return res.status(411).json({
-        message : "Entered Wrong OTP"
-      })
+      return res.status(401).json(responseObj(false, null, "Invalid OTP"));
     }
       
   }
@@ -427,9 +405,7 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
   try{
     const parsedBody = resetPasswordSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(411).json({
-        message : "Incorrect Input"
-      });
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
     const owner = await prisma.owner.findFirst({
       where:{
@@ -468,15 +444,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     console.log(req.file);
     const parsedBody = registerSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(411).json({
-        message: "Incorrect Input"+parsedBody.error
-      });
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
     //@ts-ignore
    if(req.user.mobileNumber!= parsedBody.data.phoneNumber){
-    return res.status(411).json({
-      message:"Use the same mobile number which was used to receive Opt"
-    })
+    return res.status(400).json(responseObj(false, null, "Mobile number mismatch with OTP verification"));
    }
    //@ts-ignore
    if(!req.file){

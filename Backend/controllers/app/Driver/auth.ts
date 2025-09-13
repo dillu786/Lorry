@@ -16,7 +16,7 @@ export const signIn = async (req:Request, res: Response): Promise<any> =>{
 
     const parsedBody = signInSechema.safeParse(req.body);
     if(!parsedBody.success){
-      res.status(411).json(responseObj(false,null,"Incorrect input",parsedBody.error as any))
+      return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any))
     }
 
     const driver = await prisma.driver.findFirst({
@@ -25,11 +25,11 @@ export const signIn = async (req:Request, res: Response): Promise<any> =>{
       }
     })
     if(driver?.IsActive === false){
-      return res.status(411).json(responseObj(false,null,"Driver is not active"));
+      return res.status(403).json(responseObj(false,null,"Driver is not active"));
     }
 
     if(!driver){
-      return res.status(411).json(responseObj(false,null,"Mobile number does not exist"));
+      return res.status(404).json(responseObj(false,null,"Mobile number does not exist"));
     }
 
     // Check if all documents are verified
@@ -60,9 +60,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<any> => {
   // Validate the request body using your schema
   const parsedBody = otpSchema.safeParse(req.body);
   if (!parsedBody.success) {
-    return res.status(411).json({
-      message: "Incorrect Input"+parsedBody.error.message
-    });
+    return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
   }
   const otp =   generateOTP();
   const otpExists = await prisma.otp.findFirst({
@@ -129,9 +127,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(411).json({
-        message : "Invalid Body"+parsedBody.error.message
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     } 
     const savedOtp = await  prisma.otp.findFirst({
       where:{
@@ -140,9 +136,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     })
   
     if(!savedOtp){
-      return res.status(411).json({
-        message : "Incorrect body"
-      })
+      return res.status(404).json(responseObj(false, null, "OTP not found or expired"));
     }
   
     if(savedOtp?.Otp === parsedBody.data.Otp){
@@ -160,9 +154,7 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
 
     else{
 
-      return res.status(411).json({
-        message : "Entered Wrong OTP"
-      })
+      return res.status(401).json(responseObj(false, null, "Invalid OTP"));
     }
 
    
@@ -184,9 +176,7 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
     const parsedBody = verifyOtpSchema.safeParse(req.body);
     if (!parsedBody.success){
   
-      return res.status(411).json({
-        message : "Invalid Body"+parsedBody.error.message
-      })
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
   
     const savedOtp = await  prisma.otp.findFirst({
@@ -196,9 +186,7 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
     })
   
     if(!savedOtp){
-      return res.status(411).json({
-        message : "Incorrect body"
-      })
+      return res.status(404).json(responseObj(false, null, "OTP not found or expired"));
     }
   
     if(savedOtp?.Otp === parsedBody.data.Otp){
@@ -242,9 +230,7 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
       })
     }
     else{
-      return res.status(411).json({
-        message : "Entered Wrong OTP"
-      })
+      return res.status(401).json(responseObj(false, null, "Invalid OTP"));
     }
       
   }
@@ -261,9 +247,7 @@ export const resetPassword = async (req:Request, res: Response): Promise<any>=> 
   try{
     const parsedBody = resetPasswordSchema.safeParse(req.body);
     if(!parsedBody.success){
-      return res.status(411).json({
-        message : "Incorrect Input"
-      });
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
     const driver = await prisma.driver.findFirst({
       where:{

@@ -173,7 +173,7 @@ export const bookRide = async (req:Request, res:Response): Promise<any>=>{
         const parsedBody = bookRideSchema.safeParse(req.body);
 
         if(!parsedBody.success){
-            res.status(411).json(responseObj(false,"Incorrect Input",parsedBody.error as any));
+            return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any));
         }
         const  booking = await prisma.bookings.create({
             data:{

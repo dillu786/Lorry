@@ -130,7 +130,7 @@ export const acceptedBookings = async (req: Request,res: Response): Promise<any>
         
         const driverId = req.user.Id;
         if( driverId == null || driverId == undefined){
-            res.status(411).json(responseObj(false,null,"Incorrect Input"));
+            return res.status(400).json(responseObj(false,null,"Invalid input data"));
         }
         const acceptedBookings = await prisma.bookings.findMany({
             where:{
@@ -172,7 +172,7 @@ export const completedRides = async (req:Request,res:Response):Promise<any> =>{
         const driverId = req.user.Id as string;
     
         if(driverId == ""|| driverId == null || driverId == undefined){
-            res.status(411).json(responseObj(false,null,"Incorrect Input"));
+            return res.status(400).json(responseObj(false,null,"Invalid input data"));
         }
     
         const completedRides = await prisma.bookings.findMany({
@@ -334,7 +334,7 @@ export const endTrip = async (req:Request, res:Response): Promise<any> =>{
         const parsedBody = acceptRideSchema.safeParse(req.body);
     
         if(!parsedBody.success){
-            res.status(411).json(responseObj(false,"Incorrect Input",parsedBody.error as any))
+            return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any))
         }
     
         const booking = await prisma.bookings.findFirst({
@@ -456,7 +456,7 @@ export const makeDriverOnline = async (req:Request, res:Response): Promise<any> 
         const driverId = req.user.Id as string;
         const parsedBody = makeDriverOnlineSchema.safeParse(req.body);
         if(!parsedBody.success){
-            res.status(411).json(responseObj(false,null,parsedBody.error as any))
+            return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any))
         }
         console.log("parsedBody"+JSON.stringify(parsedBody));
         await prisma.driver.update({
@@ -499,7 +499,7 @@ export const negotiateFare = async (req:Request, res:Response): Promise<any> =>{
     try{
         const parsedBody = negotiateFareSchema.safeParse(req.body);
         if(!parsedBody.success){
-            res.status(411).json(responseObj(false,"Incorrect Input",parsedBody.error as any))
+            return res.status(400).json(responseObj(false,null,"Invalid input data",parsedBody.error.errors.map(error => error.message) as any))
         }   
 
         const booking = await prisma.bookings.findFirst({

@@ -24,9 +24,7 @@ export const addDriver = async (req: Request, res: Response): Promise<any> => {
   try {
     const parsedBody = addDriverSchema.safeParse(req.body);
     if (!parsedBody.success) {
-      return res.status(411).json({
-        message: "Incorrect Input " + parsedBody.error,
-      });
+      return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
     }
 
     // Check if driver already exists
@@ -41,9 +39,7 @@ export const addDriver = async (req: Request, res: Response): Promise<any> => {
     });
 
     if (driverExist.length > 0) {
-      return res.status(411).json({
-        message: "Aadhar/Pan/MobileNumber already exist",
-      });
+      return res.status(409).json(responseObj(false, null, "Aadhar/Pan/MobileNumber already exists"));
     }
 
     // Check only required files
@@ -54,7 +50,7 @@ export const addDriver = async (req: Request, res: Response): Promise<any> => {
       !files["licenseImageBack"] ||
       !files["driverImage"]
     ) {
-      return res.status(400).json({ error: "Missing required image files" });
+      return res.status(400).json(responseObj(false, null, "Missing required image files"));
     }
 
     // Required files
@@ -146,13 +142,9 @@ export const addDriver = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    res.status(200).json({
-      message: "Driver added successfully",
-    });
+    res.status(200).json(responseObj(true, null, "Driver added successfully"));
   } catch (error: any) {
-    res.status(500).json({
-      message: "Something went wrong " + error,
-    });
+    res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
   }
 };
 
@@ -161,7 +153,7 @@ export const assignVehicleToDriver = async (req: Request, res: Response): Promis
     try {
       const parsedBody = assignVehicleToDriverSchema.safeParse(req.body);
       if (!parsedBody.success) {
-        return res.status(411).json(responseObj(false, null, "Incorrect Input"));
+        return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors.map(error => error.message) as any));
       }
   
       const { driverId, vehicleId } = parsedBody.data;
@@ -268,9 +260,7 @@ export const getAllDriverByOwnerId = async (req:Request,res: Response):Promise<a
        return  res.status(200).json(drivers);
     }
     catch(error:any){
-        res.status(500).json({
-            message : "Something went wrong"+error
-        })
+        res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
     }
 }
 
