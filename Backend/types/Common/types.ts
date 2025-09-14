@@ -16,6 +16,7 @@ export const verifyOtpSchema = z.object({
 export interface DriverLocation {
   lat: number;
   lng: number;
+  driverId: string;
 }
 
 export interface RideRequest {

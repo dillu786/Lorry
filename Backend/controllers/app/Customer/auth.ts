@@ -172,7 +172,11 @@ export const sendOtp = async (req: Request, res: Response): Promise<any> => {
   // Validate the request body using your schema
   const parsedBody = otpSchema.safeParse(req.body);
   if (!parsedBody.success) {
-    return res.status(400).json(responseObj(false, null, "Invalid input data", parsedBody.error.errors));
+    const formattedErrors = parsedBody.error.errors.map(error => {
+      const fieldName = error.path.join('.');
+      return `${fieldName}: ${error.message}`;
+    });
+    return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
   }
   const otp =   generateOTP();
   const otpExists = await prisma.otp.findFirst({

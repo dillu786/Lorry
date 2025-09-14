@@ -18,6 +18,9 @@ const port = 3000;
 const prisma = new PrismaClient();
 
 const connectedDrivers = new Map<string, DriverLocation>();
+const connectedCustomers = new Map<string, string>();
+const driverSocketMap = new Map<string, string>(); // Maps driverId to socketId
+//const customerSocketMap = new Map<string, string>(); // Maps customerId to socketId
 
 // 3. Emit to drivers within 20km of a pickup point
 export const notifyNearbyDrivers = (ride: RideRequest) => {
@@ -84,7 +87,16 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket: Socket) => {
-  console.log("Driver connected:", socket.id);
+  console.log("Client connected:", socket.id);
+
+
+
+  // Customer authentication
+  socket.on("customer_auth", (customerId: string) => {
+    connectedCustomers.set(customerId,socket.id);
+    //customerSocketMap.set(customerId, socket.id);
+    console.log(`Customer ${customerId} authenticated with socket ${socket.id}`);
+  });
 
   // Store location sent by driver
   socket.on("update_location", (location: DriverLocation) => {
@@ -95,7 +107,27 @@ io.on("connection", (socket: Socket) => {
   // Remove driver on disconnect
   socket.on("disconnect", () => {
     connectedDrivers.delete(socket.id);
-    console.log("Driver disconnected:", socket.id);
+    connectedCustomers.delete(socket.id);
+    
+    // Remove from driver socket map
+    for (const [driverId, socketId] of driverSocketMap.entries()) {
+      if (socketId === socket.id) {
+        driverSocketMap.delete(driverId);
+        console.log(`Driver ${driverId} disconnected`);
+        break;
+      }
+    }
+    
+    // Remove from customer socket map
+    for (const [customerId, socketId] of connectedCustomers.entries()) {
+      if (socketId === socket.id) {
+        connectedCustomers.delete(customerId);
+        console.log(`Customer ${customerId} disconnected`);
+        break;
+      }
+    }
+    
+    console.log("Client disconnected:", socket.id);
   });
 });
 
@@ -105,11 +137,73 @@ server.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
 
+
+
+
+// Notify all clients about new negotiated fare
 export const notifyNegotiatedFare = () => {
   io.emit("new_negotiated_fare", {
     message: "New negotiated fare",
   });
   console.log("New negotiated fare");
+};
+
+// Notify specific driver when customer starts negotiation
+export const notifyDriverOfNegotiation = (driverId: string, bookingId: string) => {
+  const socketId = driverSocketMap.get(driverId);
+  if (socketId) {
+    io.to(socketId).emit("customer_negotiation_started", {
+      bookingId: bookingId,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`Driver ${driverId} notified of negotiation for booking ${bookingId}`);
+  } else {
+    console.log(`Driver ${driverId} is not connected to socket`);
+  }
+};
+
+// Notify specific customer when driver accepts their ride
+export const notifyCustomerOfAcceptedRide = (customerId: string, bookingId: string) => {
+  const socketId = connectedCustomers.get(customerId);
+  if (socketId) {
+    io.to(socketId).emit("ride_accepted", {
+      bookingId: bookingId,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`Customer ${customerId} notified of accepted ride for booking ${bookingId}`);
+  } else {
+    console.log(`Customer ${customerId} is not connected to socket`);
+  }
+};
+
+// Notify specific customer when driver starts fare negotiation
+export const notifyCustomerOfNegotiation = (customerId: string, bookingId: string, negotiatedFare: string) => {
+  const socketId = connectedCustomers.get(customerId);
+  if (socketId) {
+    io.to(socketId).emit("driver_negotiation_started", {
+      bookingId: bookingId,
+      negotiatedFare: negotiatedFare,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`Customer ${customerId} notified of driver negotiation for booking ${bookingId}`);
+  } else {
+    console.log(`Customer ${customerId} is not connected to socket`);
+  }
+};
+
+// Notify specific driver when customer accepts negotiated fare
+export const notifyDriverOfAcceptedFare = (driverId: string, bookingId: string, acceptedFare: string) => {
+  const socketId = driverSocketMap.get(driverId);
+  if (socketId) {
+    io.to(socketId).emit("customer_accepted_fare", {
+      bookingId: bookingId,
+      acceptedFare: acceptedFare,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`Driver ${driverId} notified of accepted fare for booking ${bookingId}`);
+  } else {
+    console.log(`Driver ${driverId} is not connected to socket`);
+  }
 };
 
 async function main() {

@@ -5,7 +5,7 @@ import { acceptRideSchema, makeDriverOnlineSchema } from "../../../types/Driver/
 import { negotiateFareSchema } from "../../../types/Driver/types";
 import { getObjectSignedUrl, uploadFile,generateFileName } from "../../../utils/s3utils";
 import { haversineDistance } from "../../../utils/haversine";
-import { notifyNegotiatedFare } from "../../..";
+import { notifyDriverOfNegotiation, notifyCustomerOfAcceptedRide, notifyCustomerOfNegotiation } from "../../..";
 const prisma = new PrismaClient();
 
 export const newBookings = async (req: Request, res: Response): Promise<any> => {
@@ -344,12 +344,16 @@ return res.status(400).json(responseObj(false,null,"Please check the following f
         const booking = await prisma.bookings.findFirst({
             where:{
                 Id: parsedBody.data?.BookingId
+            },
+            select: {
+                Id: true,
+                UserId: true,
+                Status: true
             }
         })
     
         if(!booking){
-            res.status(411).json(responseObj(false,null,"BookingId does not exist"));
-            
+            return res.status(411).json(responseObj(false,null,"BookingId does not exist"));
         }
     
        const acceptedBooking = await prisma.bookings.update({
@@ -382,6 +386,9 @@ return res.status(400).json(responseObj(false,null,"Please check the following f
                 Status: "Accepted"
             }
         })
+        
+        // Notify the customer that their ride has been accepted
+        notifyCustomerOfAcceptedRide(booking.UserId.toString(), booking.Id.toString());
     
       
     }
@@ -517,11 +524,16 @@ return res.status(400).json(responseObj(false,null,"Please check the following f
         const booking = await prisma.bookings.findFirst({
             where:{
                 Id: parsedBody.data?.BookingId
+            },
+            select: {
+                Id: true,
+                UserId: true,
+                Status: true
             }
         })  
 
         if(!booking){
-            res.status(411).json(responseObj(false,null,"BookingId does not exist"));
+            return res.status(411).json(responseObj(false,null,"BookingId does not exist"));
         }               
 
             await prisma.fareNegotiation.create({
@@ -534,7 +546,9 @@ return res.status(400).json(responseObj(false,null,"Please check the following f
                     NegotiatedTime: new Date(Date.now())
                 }           
         })
-        notifyNegotiatedFare();
+        // Notify the customer that driver has started negotiation
+        notifyCustomerOfNegotiation(booking.UserId.toString(), booking.Id.toString(), parsedBody.data?.NegotiatedFare as string);
+        
         res.status(200).json(responseObj(true,null,""));
     }   
     catch(error:any){

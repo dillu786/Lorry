@@ -4,10 +4,11 @@ import { getObjectSignedUrl } from "../../../utils/s3utils";
 import { PaymentMode, Prisma, PrismaClient, VehicleType } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Customer/types";
-import { notifyNearbyDrivers } from "../../..";
+import { notifyNearbyDrivers, notifyDriverOfNegotiation, notifyDriverOfAcceptedFare } from "../../..";
 import type { RideRequest } from "../../../types/Common/types";
 import { declineBookingSchema } from "../../../types/Customer/types";
 import { GetObjectAclCommand } from "@aws-sdk/client-s3";
+import { negotiateFareSchema } from "../../../types/Driver/types";
 const prisma = new PrismaClient();
 
 export const declineBooking = async (req: Request, res: Response): Promise<any>=>{
@@ -368,15 +369,48 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
             return res.status(400).json(responseObj(false,null,"User not found"));
         }   
 
-        const parsedBody = acceptNegotiatedFareSchema.safeParse(req.body);
+        const parsedBody = negotiateFareSchema.safeParse(req.body);
         if(!parsedBody.success){
             return res.status(400).json(responseObj(false,null,"Invalid Input"));
         }
+
+        // Update fare negotiation status to accepted
+        await prisma.fareNegotiation.update({
+            where: {
+                BookingId_DriverId: {
+                    BookingId: parsedBody.data.BookingId,
+                    DriverId: parsedBody.data.DriverId
+                }
+            },
+            data: {
+                Status: "Accepted"
+            }
+        });
+
+        // Update booking with accepted fare and driver
+        await prisma.bookings.update({
+            where: {
+                Id: parsedBody.data.BookingId
+            },
+            data: {
+                DriverId: parsedBody.data.DriverId,
+                Fare: parsedBody.data.NegotiatedFare,
+                Status: "Confirmed",
+                UpdatedDateTime: new Date().toISOString()
+            }
+        });
+
+        // Notify the driver that customer has accepted the negotiated fare
+        notifyDriverOfAcceptedFare(
+            parsedBody.data.DriverId.toString(), 
+            parsedBody.data.BookingId.toString(), 
+            parsedBody.data.NegotiatedFare.toString()
+        );
         
-        
+        res.status(200).json(responseObj(true,null,"Fare accepted successfully"));
     }
     catch(error:any){
-        res.status(500).json(responseObj(false,null,"Something went wrong"));
+        res.status(500).json(responseObj(false,null,"Something went wrong: " + error.message));
     }
 }
 
