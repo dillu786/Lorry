@@ -236,9 +236,7 @@ export const verifyOtpOnPasswordReset = async (req:Request, res:Response):Promis
         }
       })
 
-      const accesstoken = jwt.sign({
-        user
-      },process.env.JWT_SECRET_DRIVER as unknown as string)
+      const accesstoken = jwt.sign(user,process.env.JWT_SECRET_DRIVER as unknown as string)
 
       return res.status(200).json({
         message:"Successfully loggedIn",

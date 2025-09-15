@@ -8,7 +8,7 @@ import { notifyNearbyDrivers, notifyDriverOfNegotiation, notifyDriverOfAcceptedF
 import type { RideRequest } from "../../../types/Common/types";
 import { declineBookingSchema } from "../../../types/Customer/types";
 import { GetObjectAclCommand } from "@aws-sdk/client-s3";
-import { negotiateFareSchema } from "../../../types/Driver/types";
+import { acceptRideSchema, negotiateFareSchema } from "../../../types/Driver/types";
 const prisma = new PrismaClient();
 
 export const declineBooking = async (req: Request, res: Response): Promise<any>=>{
@@ -70,6 +70,7 @@ export const cancelBooking = async (req: Request, res: Response): Promise<any>=>
     try{
         //@ts-ignore
         const bookingId = req.query.bookingId;
+        const cancellationReason = req.body.cancellationReason;
         const mobileNumber = req.user.MobileNumber;
         const user = req.user;
         const booking = await prisma.bookings.findFirst({
@@ -86,7 +87,8 @@ export const cancelBooking = async (req: Request, res: Response): Promise<any>=>
              
             },
             data:{
-                Status: "Cancelled"
+                Status: "Cancelled",
+                CancellationReason: cancellationReason || "No reason provided"
             }
         })
         res.status(200).json(responseObj(true,null,"Booking Cancelled Successfully"));
@@ -369,7 +371,7 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
             return res.status(400).json(responseObj(false,null,"User not found"));
         }   
 
-        const parsedBody = negotiateFareSchema.safeParse(req.body);
+        const parsedBody = acceptRideSchema.safeParse(req.body);
         if(!parsedBody.success){
             return res.status(400).json(responseObj(false,null,"Invalid Input"));
         }
@@ -394,7 +396,7 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
             },
             data: {
                 DriverId: parsedBody.data.DriverId,
-                Fare: parsedBody.data.NegotiatedFare,
+                Fare: parsedBody.data.Fare,
                 Status: "Confirmed",
                 UpdatedDateTime: new Date().toISOString()
             }
@@ -404,7 +406,7 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
         notifyDriverOfAcceptedFare(
             parsedBody.data.DriverId.toString(), 
             parsedBody.data.BookingId.toString(), 
-            parsedBody.data.NegotiatedFare.toString()
+            parsedBody.data.Fare.toString()
         );
         
         res.status(200).json(responseObj(true,null,"Fare accepted successfully"));
@@ -416,7 +418,7 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
 
 export const getCustomerDetails = async (req:Request, res: Response): Promise<any>=>{
 
-    const customerId = req.user.user.Id;
+    const customerId = req.user.Id;
 
     try{
 

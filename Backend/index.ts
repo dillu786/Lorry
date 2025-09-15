@@ -12,6 +12,7 @@ import { haversineDistance } from "./utils/haversine";
 import { getVehicleTypes } from './controllers/app/Owner/vehicle';
 import { PrismaClient } from '@prisma/client';
 import { VehicleType } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 const port = 3000;
@@ -21,6 +22,48 @@ const connectedDrivers = new Map<string, DriverLocation>();
 const connectedCustomers = new Map<string, string>();
 const driverSocketMap = new Map<string, string>(); // Maps driverId to socketId
 //const customerSocketMap = new Map<string, string>(); // Maps customerId to socketId
+
+// JWT Authentication middleware for Socket.IO
+const authenticateSocket = (socket: Socket, next: Function) => {
+  const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return next(new Error('Authentication error: No token provided'));
+  }
+
+  try {
+    // Try to verify as customer first
+    try {
+      const customerPayload = jwt.verify(token, process.env.JWT_SECRET_CUSTOMER as string) as any;
+      socket.data.userType = 'customer';
+      socket.data.userId = customerPayload.Id || customerPayload.user?.Id;
+      socket.data.user = customerPayload.user || customerPayload;
+      return next();
+    } catch (customerError) {
+      // If not customer, try driver
+      try {
+        const driverPayload = jwt.verify(token, process.env.JWT_SECRET_DRIVER as string) as any;
+        socket.data.userType = 'driver';
+        socket.data.userId = driverPayload.Id || driverPayload.user?.Id;
+        socket.data.user = driverPayload.user || driverPayload;
+        return next();
+      } catch (driverError) {
+        // If not driver, try owner
+        try {
+          const ownerPayload = jwt.verify(token, process.env.JWT_SECRET_OWNER as string) as any;
+          socket.data.userType = 'owner';
+          socket.data.userId = ownerPayload.Id || ownerPayload.user?.Id;
+          socket.data.user = ownerPayload.user || ownerPayload;
+          return next();
+        } catch (ownerError) {
+          return next(new Error('Authentication error: Invalid token'));
+        }
+      }
+    }
+  } catch (error) {
+    return next(new Error('Authentication error: Token verification failed'));
+  }
+};
 
 // 3. Emit to drivers within 20km of a pickup point
 export const notifyNearbyDrivers = (ride: RideRequest) => {
@@ -86,45 +129,42 @@ const io = new Server(server, {
   },
 });
 
+// Apply authentication middleware
+io.use(authenticateSocket);
+
 io.on("connection", (socket: Socket) => {
   console.log("Client connected:", socket.id);
+  console.log("User type:", socket.data.userType);
+  console.log("User ID:", socket.data.userId);
 
-
-
-  // Customer authentication
-  socket.on("customer_auth", (customerId: string) => {
-    connectedCustomers.set(customerId,socket.id);
-    //customerSocketMap.set(customerId, socket.id);
-    console.log(`Customer ${customerId} authenticated with socket ${socket.id}`);
-  });
+  // Automatically authenticate and map users based on JWT
+  if (socket.data.userType === 'customer') {
+    connectedCustomers.set(socket.data.userId.toString(), socket.id);
+    console.log(`Customer ${socket.data.userId} authenticated with socket ${socket.id}`);
+  } else if (socket.data.userType === 'driver') {
+    driverSocketMap.set(socket.data.userId.toString(), socket.id);
+    console.log(`Driver ${socket.data.userId} authenticated with socket ${socket.id}`);
+  }
 
   // Store location sent by driver
   socket.on("update_location", (location: DriverLocation) => {
-    connectedDrivers.set(socket.id, location);
-    console.log("Received driver location:", location);
+    if (socket.data.userType === 'driver') {
+      connectedDrivers.set(socket.id, location);
+      console.log("Received driver location:", location);
+    } else {
+      socket.emit("error", { message: "Only drivers can update location" });
+    }
   });
 
-  // Remove driver on disconnect
+  // Handle disconnect
   socket.on("disconnect", () => {
-    connectedDrivers.delete(socket.id);
-    connectedCustomers.delete(socket.id);
-    
-    // Remove from driver socket map
-    for (const [driverId, socketId] of driverSocketMap.entries()) {
-      if (socketId === socket.id) {
-        driverSocketMap.delete(driverId);
-        console.log(`Driver ${driverId} disconnected`);
-        break;
-      }
-    }
-    
-    // Remove from customer socket map
-    for (const [customerId, socketId] of connectedCustomers.entries()) {
-      if (socketId === socket.id) {
-        connectedCustomers.delete(customerId);
-        console.log(`Customer ${customerId} disconnected`);
-        break;
-      }
+    if (socket.data.userType === 'driver') {
+      connectedDrivers.delete(socket.id);
+      driverSocketMap.delete(socket.data.userId.toString());
+      console.log(`Driver ${socket.data.userId} disconnected`);
+    } else if (socket.data.userType === 'customer') {
+      connectedCustomers.delete(socket.data.userId.toString());
+      console.log(`Customer ${socket.data.userId} disconnected`);
     }
     
     console.log("Client disconnected:", socket.id);

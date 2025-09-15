@@ -295,89 +295,82 @@ export const verifyOTP = async (req:Request, res:Response):Promise<any> => {
     
 };
 
-export const verifyOtpOnSignIn = async (req:Request, res:Response):Promise<any> => {
-  const { otp, mobile_number } = req.body;
-
-  try
-  {
+export const verifyOtpOnSignIn = async (req: Request, res: Response): Promise<any> => {
+  try {
     const parsedBody = verifyOtpSchema.safeParse(req.body);
-    if (!parsedBody.success){
-  
+    if (!parsedBody.success) {
       const formattedErrors = parsedBody.error.errors.map(error => {
         const fieldName = error.path.join('.');
         return `${fieldName}: ${error.message}`;
       });
       return res.status(400).json(responseObj(false, null, "Please check the following fields", formattedErrors as any));
     }
-  
+
+    const { MobileNumber, Otp } = parsedBody.data;
+
     if(parsedBody.data.MobileNumber === "7256013760" && parsedBody.data.Otp === "123456"){
       const user = await prisma.user.findFirst({
         where:{
           MobileNumber: parsedBody.data.MobileNumber
         }
       })
-      const accesstoken = jwt.sign({
-        user
-      },process.env.JWT_SECRET_CUSTOMER as unknown as string)
+      const accesstoken = jwt.sign(user as any ,process.env.JWT_SECRET_CUSTOMER as unknown as string)
 
       return res.status(200).json({
         message:"Successfully loggedIn",
         accessToken: accesstoken
       })
     }
-    const savedOtp = await  prisma.otp.findFirst({
-      where:{
-        MobileNumber: parsedBody.data.MobileNumber
+
+    // Verify OTP from database
+    const savedOtp = await prisma.otp.findFirst({
+      where: {
+        MobileNumber: MobileNumber
       }
-    })
-  
-    if(!savedOtp){
+    });
+
+    if (!savedOtp) {
       return res.status(404).json(responseObj(false, null, "OTP not found or expired"));
     }
-  
-    if(savedOtp?.Otp === parsedBody.data.Otp){
-     const user = await prisma.user.findFirst({
-        where:{
-          MobileNumber: parsedBody.data.MobileNumber
-        }
-      })
-      if(user?.IsActive === false){
-        return res.status(403).json(responseObj(false,null,"User account is not active"));
-      }
-  
-      if(!user){       
-        return res.status(400).json({
-          message : "user not founnd"
-        })
-  
-      }
-      await prisma.otp.delete({
-        where:{
-          MobileNumber:parsedBody.data.MobileNumber
-        }
-      })
 
-      const accesstoken = jwt.sign({
-        user
-      },process.env.JWT_SECRET_CUSTOMER as unknown as string)
-
-      return res.status(200).json({
-        message:"Successfully loggedIn",
-        accessToken: accesstoken
-      })
-    }
-    else{
+    if (savedOtp.Otp !== Otp) {
       return res.status(401).json(responseObj(false, null, "Invalid OTP"));
     }
-      
-  }
-  catch(Exception:any){
-    return res.status(500).json({
-      message : "Something went wrong"+Exception.message
-    })
 
+    // Get user details
+    const user = await prisma.user.findFirst({
+      where: {
+        MobileNumber: MobileNumber
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json(responseObj(false, null, "User not found"));
+    }
+
+    if (user.IsActive === false) {
+      return res.status(403).json(responseObj(false, null, "User account is not active"));
+    }
+
+    // Delete OTP after successful verification
+    await prisma.otp.delete({
+      where: {
+        MobileNumber: MobileNumber
+      }
+    });
+
+    // Generate JWT token
+    const accessToken = jwt.sign(user, process.env.JWT_SECRET_CUSTOMER as string);
+
+    return res.status(200).json({
+      message: "Successfully logged in",
+      accessToken: accessToken
+    });
+
+  } catch (error: any) {
+    console.error("Error in verifyOtpOnSignIn:", error);
+    return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
   }
-    
 };
 
 export const deleteAccount = async (req: Request, res: Response): Promise<any> => {
