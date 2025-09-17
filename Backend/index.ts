@@ -82,27 +82,10 @@ export const notifyNearbyDrivers = (ride: RideRequest) => {
 // Middleware to parse JSON requests
 app.use(express.json());
 
-// CORS configuration
-const allowedOrigins = [
-  
-  "*"
-  // Add your production domains here
-  // 'https://yourdomain.com',
-  // 'https://www.yourdomain.com'
-];
-
+// CORS configuration - Allow all origins
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
+  origin: '*', // Allow all origins
+  credentials: false, // Must be false when using wildcard
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
