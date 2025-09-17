@@ -1,6 +1,6 @@
 import express from "express"
 import { CustomerMiddleware } from "../../../middlewares/middleware";
-import { createAccount, sendOtp, deleteAccount } from "../../../controllers/app/Customer/auth";
+import { createAccount, sendOtp, deleteAccount, raiseDeleteRequest } from "../../../controllers/app/Customer/auth";
 
 import {  signIn, signUp, verifyOTP,verifyOtpOnSignIn } from "../../../controllers/app/Customer/auth";
 
@@ -13,5 +13,6 @@ router.post("/createAccount",createAccount);
 router.post("/signIn",signIn);
 router.post("/signUp",signUp);
 router.delete("/delete-account", CustomerMiddleware, deleteAccount);
+router.post("/raise-delete-request", CustomerMiddleware, raiseDeleteRequest);
 
 export default router;

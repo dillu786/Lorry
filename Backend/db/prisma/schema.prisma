@@ -34,6 +34,8 @@ model User{
   Gender             Gender
   UserWallet         UserWallet?
   Bookings           Bookings[]
+  RaiseDeleteRequest Boolean @default(false)
+  ApproveDeleteRequest Boolean @default(false)
 }
 model Owner {
   Id                    Int       @default(autoincrement()) @id
@@ -57,6 +59,8 @@ model Owner {
   OwnerWallet           OwnerWallet?        // Optional Wallet
   OwnerDriver           OwnerDriver[]
   FareNegotiations      FareNegotiation[]
+  RaiseDeleteRequest    Boolean           @default(false)
+  ApproveDeleteRequest  Boolean           @default(false)
 }
 
 model Driver {
@@ -93,6 +97,8 @@ model Driver {
   IsFSAdhaarImgVerified  Boolean @default(false)
   IsBSAdhaarImgVerified  Boolean @default(false)
   IsPanImgVerified       Boolean @default(false)
+  RaiseDeleteRequest     Boolean @default(false)
+  ApproveDeleteRequest   Boolean @default(false)
 }
 
 model Vehicle {
@@ -208,12 +214,14 @@ model Bookings {
   CancellationReason          String?
   BookingTime                 DateTime @default(now())
   StartTime                   DateTime
+  EndTime                     DateTime?
   User                        User @relation(fields: [UserId],references: [Id])
   CreatedDateTime             DateTime @default(now())
   UpdatedDateTime             DateTime @default(now())
   Driver                      Driver? @relation(fields: [DriverId],references: [Id])
   Vehicle                     Vehicle? @relation(fields: [VehicleId],references: [Id]) 
   FareNegotiations            FareNegotiation[]
+  Invoice                     Invoice?
 }
 model Fare {
   Id              String   @id @default(uuid())
@@ -258,6 +266,67 @@ model FareNegotiation {
   NegotiatedFare String
   NegotiatedTime DateTime @default(now())
   @@unique([BookingId, DriverId])
+}
+
+model Invoice {
+  Id              Int       @default(autoincrement()) @id
+  InvoiceNumber   String    @unique
+  BookingId       Int       @unique
+  Booking         Bookings  @relation(fields: [BookingId], references: [Id])
+  
+  // Customer Details
+  CustomerId      Int
+  CustomerName    String
+  CustomerMobile  String
+  CustomerEmail   String?
+  
+  // Driver Details
+  DriverId        Int
+  DriverName      String
+  DriverMobile    String
+  
+  // Owner Details
+  OwnerId         Int?
+  OwnerName       String?
+  
+  // Vehicle Details
+  VehicleId       Int?
+  VehicleModel    String?
+  VehicleNumber   String?
+  
+  // Trip Details
+  PickUpLocation  String
+  DropLocation    String
+  Product         String
+  Distance        String
+  Weight          String?
+  VehicleType     VehicleType
+  
+  // Fare Details
+  FareAmount      Float     // Original fare amount
+  DriverFee       Float     // Amount driver receives
+  ConvenienceFee  Float     // 5% convenience fee
+  GstAmount       Float     // 18% GST on convenience fee
+  GrandTotal      Float     // Total amount (should equal FareAmount)
+  SubTotal        Float     // Subtotal before rounding
+  Rounding        Float     // Rounding adjustment
+  PaymentMode     PaymentMode
+  
+  // Timestamps
+  BookingTime     DateTime
+  StartTime       DateTime
+  EndTime         DateTime
+  InvoiceDate     DateTime @default(now())
+  
+  // Additional Info
+  TripDuration    Int?     // in minutes
+  Notes           String?
+  
+  @@index([InvoiceNumber])
+  @@index([BookingId])
+  @@index([CustomerId])
+  @@index([DriverId])
+  @@index([InvoiceDate])
 }
 model Admin {
   id            String    @id @default(cuid())
@@ -393,6 +462,22 @@ model PermissionAuditLog {
   @@index([adminId])
   @@index([roleId])
   @@map("permission_audit_logs")
+}
+
+model DeletionRequest {
+  Id              Int      @default(autoincrement()) @id
+  UserId          Int      // Generic user ID
+  UserType        String   // "CUSTOMER", "DRIVER", "OWNER"
+  DeletionReason  String
+  RequestedAt     DateTime @default(now())
+  ProcessedAt     DateTime?
+  ProcessedBy     String?  // Admin ID who processed it
+  AdminNotes      String?
+  
+  @@index([UserType])
+  @@index([UserId])
+  @@index([RequestedAt])
+  @@map("deletion_requests")
 }
 
 model AccountDeletionAudit {

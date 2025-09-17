@@ -1,5 +1,5 @@
 import express from "express"
-import { resetPassword,sendOtp,signIn, verifyOTP,verifyOtpOnPasswordReset, getDocumentVerificationStatus, deleteAccount } from "../../../controllers/app/Driver/auth";
+import { resetPassword,sendOtp,signIn, verifyOTP,verifyOtpOnPasswordReset, getDocumentVerificationStatus, deleteAccount, raiseDeleteRequest } from "../../../controllers/app/Driver/auth";
 import { Drivermiddleware } from "../../../middlewares/middleware";
 
 const router = express.Router();
@@ -11,4 +11,5 @@ router.post("/verifyOtp",verifyOTP);
 router.post("/sendOtp",sendOtp);
 router.get("/document-verification-status", Drivermiddleware, getDocumentVerificationStatus);
 router.delete("/delete-account",Drivermiddleware, deleteAccount);
+router.post("/raise-delete-request", Drivermiddleware, raiseDeleteRequest);
 export default router;

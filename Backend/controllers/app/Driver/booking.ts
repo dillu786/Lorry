@@ -309,23 +309,36 @@ export const endTrip = async (req:Request, res:Response): Promise<any> =>{
             })
         }
 
-        await prisma.bookings.update({
+        // Update booking status to completed and set end time
+        const updatedBooking = await prisma.bookings.update({
             where:{
                 Id: Number(bookingId)
-
             },
             data:{
-                Status:"Completed"
+                Status:"Completed",
+                EndTime: new Date()
             }
         });
-       
-        res.status(200).json(responseObj(true,"","successfully updated"));
+
+        // Generate invoice for the completed booking
+        const { generateInvoice } = await import('./invoice');
+        const invoiceResult = await generateInvoice(Number(bookingId));
+        
+        if (!invoiceResult.success) {
+            console.error("Failed to generate invoice:", invoiceResult.message);
+            // Still return success for the trip completion, but log the invoice error
+        }
+
+        res.status(200).json(responseObj(true,{
+            booking: updatedBooking,
+            invoiceGenerated: invoiceResult.success,
+            invoiceMessage: invoiceResult.message
+        },"Trip completed successfully"));
     }
     catch(error:any){
-
-        res.status(500).json(responseObj(false,null,"something went wrong"+error))
+        console.error("Error in endTrip:", error);
+        res.status(500).json(responseObj(false,null,"something went wrong: " + error.message))
     }
-
 }
     export const acceptRide = async (req:Request, res:Response):Promise<any>=>{
 

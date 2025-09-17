@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { resetPassword,verifyOtpOnPasswordReset, sendOtp,verifyOTP, deleteAccount } from "../../../controllers/app/Owner/auth";
+import { resetPassword,verifyOtpOnPasswordReset, sendOtp,verifyOTP, deleteAccount, raiseDeleteRequest } from "../../../controllers/app/Owner/auth";
 import { OwnerMiddleware } from "../../../middlewares/middleware";
 import { uploadDocument } from "../../../controllers/app/Owner/auth";
 import { signUp,signIn,register } from "../../../controllers/app/Owner/auth";
@@ -29,4 +29,5 @@ router.post("/uploadDoc",OwnerMiddleware,
 ]),
 uploadDocument);
 router.delete("/delete-account", OwnerMiddleware, deleteAccount);
+router.post("/raise-delete-request", OwnerMiddleware, raiseDeleteRequest);
 export default router;

@@ -1,6 +1,7 @@
 import express from "express"
 import bookingRoutes from "./booking"
 import authRoutes from "./auth"
+import invoiceRoutes from "./invoice"
 import { responseObj } from "../../../utils/response";
 import { Drivermiddleware } from "../../../middlewares/middleware";
 import type{Request,Response} from "express"
@@ -30,5 +31,6 @@ router.get("/dashboard",Drivermiddleware,async (req:Request,res:Response):Promis
 })
 router.use("/booking",bookingRoutes);
 router.use("/auth",authRoutes);
+router.use("/invoice", invoiceRoutes);
 router.get("/driverDetails",Drivermiddleware,getDriverDetails);
 export default router;

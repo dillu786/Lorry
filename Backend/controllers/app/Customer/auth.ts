@@ -373,6 +373,53 @@ export const verifyOtpOnSignIn = async (req: Request, res: Response): Promise<an
   }
 };
 
+export const raiseDeleteRequest = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { deletionReason } = req.body;
+
+    if (!deletionReason) {
+      return res.status(400).json(responseObj(false, null, "Deletion reason is required"));
+    }
+
+    const userId = req.user.Id;
+
+    if (!userId) {
+      return res.status(400).json(responseObj(false, null, "Unable to determine user from token"));
+    }
+
+    const user = await prisma.user.findUnique({ where: { Id: userId } });
+
+    if (!user) {
+      return res.status(404).json(responseObj(false, null, "User not found"));
+    }
+
+    // Check if delete request is already raised
+    if (user.RaiseDeleteRequest) {
+      return res.status(409).json(responseObj(false, null, "Delete request has already been raised"));
+    }
+
+    // Update the RaiseDeleteRequest flag to true
+    await prisma.user.update({
+      where: { Id: userId },
+      data: { RaiseDeleteRequest: true }
+    });
+
+    // Create deletion request record
+    await prisma.deletionRequest.create({
+      data: {
+        UserId: userId,
+        UserType: "CUSTOMER",
+        DeletionReason: deletionReason
+      }
+    });
+
+    return res.status(200).json(responseObj(true, null, "Delete request raised successfully"));
+  } catch (error: any) {
+    console.error("Error raising delete request:", error);
+    return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
+  }
+};
+
 export const deleteAccount = async (req: Request, res: Response): Promise<any> => {
   try {
     const { deletionReason } = req.body;
@@ -395,6 +442,11 @@ export const deleteAccount = async (req: Request, res: Response): Promise<any> =
 
     if (!user) {
       return res.status(404).json(responseObj(false, null, "User not found"));
+    }
+
+    // Check if delete request has been raised
+    if (!user.RaiseDeleteRequest) {
+      return res.status(403).json(responseObj(false, null, "Delete request must be raised first before account can be deleted"));
     }
 
     await prisma.$transaction(async (tx) => {
