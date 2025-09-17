@@ -357,23 +357,24 @@ return res.status(400).json(responseObj(false,null,"Please check the following f
         }
     
        const acceptedBooking = await prisma.bookings.update({
-            where:{
-                Id: parsedBody.data?.BookingId
-            },
-            data:{
-                DriverId: parseInt((parsedBody.data?.DriverId as unknown as string)),
-                VehicleId: parseInt((parsedBody.data?.VehicleId as unknown as string)),
-                Status: "Confirmed",
-                Fare: parsedBody.data?.Fare ,         
-                UpdatedDateTime: new Date().toISOString()
-            }
-        })
-        if(await prisma.fareNegotiation.findFirst({
+             where:{
+                 Id: parsedBody.data?.BookingId
+             },
+             data:{
+                 DriverId: parseInt((parsedBody.data?.DriverId as unknown as string)),
+                 VehicleId: parseInt((parsedBody.data?.VehicleId as unknown as string)),
+                 Status: "Confirmed",
+                 Fare: parsedBody.data?.Fare ,         
+                 UpdatedDateTime: new Date().toISOString()
+             }
+         })
+ 
+         if(await prisma.fareNegotiation.findFirst({
             where:{
                 BookingId: parsedBody.data?.BookingId as number,
                 DriverId: parseInt((parsedBody.data?.DriverId as unknown as string))
             }
-        })){
+         })){
         await prisma.fareNegotiation.update({
             where:{
                 BookingId_DriverId: {
@@ -387,11 +388,10 @@ return res.status(400).json(responseObj(false,null,"Please check the following f
             }
         })
         
-        // Notify the customer that their ride has been accepted
-        notifyCustomerOfAcceptedRide(booking.UserId.toString(), booking.Id.toString());
-    
       
     }
+    // Notify the customer that their ride has been accepted
+    notifyCustomerOfAcceptedRide(booking.UserId.toString(), booking.Id.toString());
     res.status(200).json(responseObj(true,acceptedBooking,""));
 }
 
