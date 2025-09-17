@@ -84,12 +84,8 @@ app.use(express.json());
 
 // CORS configuration
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001', 
-  'http://localhost:5173',
-  'http://localhost:4173',
-  'https://returnlorrybackend.onrender.com',
-  'https://returnlorry.com'
+  
+  "*"
   // Add your production domains here
   // 'https://yourdomain.com',
   // 'https://www.yourdomain.com'
