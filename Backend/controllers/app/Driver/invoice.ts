@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { responseObj } from "../../../utils/response";
-import { generateInvoicePDF } from "../../../utils/pdfGenerator";
+import { generateInvoicePDF, generateInvoicePDFDirect } from "../../../utils/pdfGenerator";
 
 const prisma = new PrismaClient();
 
@@ -53,10 +53,12 @@ const calculateTripDuration = (startTime: Date, endTime: Date): number => {
 // Generate invoice for completed booking
 export const generateInvoice = async (bookingId: number): Promise<any> => {
   try {
-    // Check if invoice already exists
-    const existingInvoice = await prisma.invoice.findUnique({
-      where: { BookingId: bookingId }
-    });
+    // Check if invoice already exists using raw SQL
+    const existingInvoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" WHERE "BookingId" = ${bookingId}
+    `;
+    
+    const existingInvoice = Array.isArray(existingInvoices) ? existingInvoices[0] : existingInvoices;
 
     if (existingInvoice) {
       return { success: false, message: "Invoice already exists for this booking" };
@@ -116,70 +118,39 @@ export const generateInvoice = async (bookingId: number): Promise<any> => {
       ownerDetails = ownerDriver?.Owner;
     }
 
-        // Calculate fare breakdown
-        const fareBreakdown = calculateFareBreakdown(booking.Fare);
+    // Calculate fare breakdown
+    const fareBreakdown = calculateFareBreakdown(booking.Fare);
 
     // Calculate trip duration
-    const tripDuration = calculateTripDuration(booking.StartTime, booking.EndTime || new Date());
+    const tripDuration = calculateTripDuration(booking.StartTime, (booking as any).EndTime || new Date());
 
     // Generate invoice number
     const invoiceNumber = generateInvoiceNumber();
 
-    // Create invoice
-    const invoice = await prisma.invoice.create({
-      data: {
-        InvoiceNumber: invoiceNumber,
-        BookingId: bookingId,
-        
-        // Customer Details
-        CustomerId: booking.User.Id,
-        CustomerName: booking.User.Name,
-        CustomerMobile: booking.User.MobileNumber,
-        CustomerEmail: booking.User.Email,
-        
-        // Driver Details
-        DriverId: booking.DriverId!,
-        DriverName: booking.Driver?.Name || "Unknown",
-        DriverMobile: booking.Driver?.MobileNumber || "",
-        
-        // Owner Details
-        OwnerId: ownerDetails?.Id,
-        OwnerName: ownerDetails?.Name,
-        
-        // Vehicle Details
-        VehicleId: booking.VehicleId,
-        VehicleModel: booking.Vehicle?.Model,
-        VehicleNumber: booking.Vehicle?.VehicleNumber,
-        
-        // Trip Details
-        PickUpLocation: booking.PickUpLocation,
-        DropLocation: booking.DropLocation,
-        Product: booking.Product,
-        Distance: booking.Distance,
-        Weight: booking.Weight,
-        VehicleType: booking.VehicleType,
-        
-        // Fare Details
-        FareAmount: fareBreakdown.fareAmount,
-        DriverFee: fareBreakdown.driverFee,
-        ConvenienceFee: fareBreakdown.convenienceFee,
-        GstAmount: fareBreakdown.gstAmount,
-        GrandTotal: fareBreakdown.grandTotal,
-        SubTotal: fareBreakdown.subTotal,
-        Rounding: fareBreakdown.rounding,
-        PaymentMode: booking.PaymentMode,
-        
-        // Timestamps
-        BookingTime: booking.BookingTime,
-        StartTime: booking.StartTime,
-        EndTime: booking.EndTime || new Date(),
-        InvoiceDate: new Date(),
-        
-        // Additional Info
-        TripDuration: tripDuration,
-        Notes: `Trip completed successfully. Distance: ${booking.Distance} km`
-      }
-    });
+    // Create invoice using raw SQL
+    const invoice = await prisma.$queryRaw`
+      INSERT INTO "Invoice" (
+        "InvoiceNumber", "BookingId", "CustomerId", "CustomerName", "CustomerMobile", "CustomerEmail",
+        "DriverId", "DriverName", "DriverMobile", "OwnerId", "OwnerName",
+        "VehicleId", "VehicleModel", "VehicleNumber", "PickUpLocation", "DropLocation",
+        "Product", "Distance", "Weight", "VehicleType", "FareAmount", "DriverFee",
+        "ConvenienceFee", "GstAmount", "GrandTotal", "SubTotal", "Rounding", "PaymentMode",
+        "BookingTime", "StartTime", "EndTime", "InvoiceDate", "TripDuration", "Notes"
+      ) VALUES (
+        ${invoiceNumber}, ${bookingId}, ${booking.User.Id}, ${booking.User.Name}, 
+        ${booking.User.MobileNumber}, ${booking.User.Email}, ${booking.DriverId!}, 
+        ${booking.Driver?.Name || "Unknown"}, ${booking.Driver?.MobileNumber || ""}, 
+        ${ownerDetails?.Id || null}, ${ownerDetails?.Name || null}, ${booking.VehicleId || null}, 
+        ${booking.Vehicle?.Model || null}, ${booking.Vehicle?.VehicleNumber || null}, 
+        ${booking.PickUpLocation}, ${booking.DropLocation}, ${booking.Product}, 
+        ${booking.Distance}, ${booking.Weight || null}, ${booking.VehicleType}, 
+        ${fareBreakdown.fareAmount}, ${fareBreakdown.driverFee}, ${fareBreakdown.convenienceFee}, 
+        ${fareBreakdown.gstAmount}, ${fareBreakdown.grandTotal}, ${fareBreakdown.subTotal}, 
+        ${fareBreakdown.rounding}, ${booking.PaymentMode}, ${booking.BookingTime}, 
+        ${booking.StartTime}, ${(booking as any).EndTime || new Date()}, ${new Date()}, 
+        ${tripDuration}, ${`Trip completed successfully. Distance: ${booking.Distance} km`}
+      ) RETURNING *
+    `;
 
     return { success: true, data: invoice, message: "Invoice generated successfully" };
   } catch (error: any) {
@@ -197,18 +168,13 @@ export const getInvoiceByBookingId = async (req: Request, res: Response): Promis
       return res.status(400).json(responseObj(false, null, "Booking ID is required"));
     }
 
-    const invoice = await prisma.invoice.findUnique({
-      where: { BookingId: parseInt(bookingId) },
-      include: {
-        Booking: {
-          select: {
-            Id: true,
-            Status: true,
-            ProductImage: true
-          }
-        }
-      }
-    });
+    // Use raw SQL query to get invoice data
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "BookingId" = ${parseInt(bookingId)}
+    `;
+
+    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
 
     if (!invoice) {
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
@@ -228,25 +194,21 @@ export const getDriverInvoices = async (req: Request, res: Response): Promise<an
     const limit = Number(req.query.limit) || 10;
     const driverId = req.user.Id;
 
-    const invoices = await prisma.invoice.findMany({
-      where: { DriverId: driverId },
-      orderBy: { InvoiceDate: 'desc' },
-      take: limit,
-      skip: (page - 1) * limit,
-      include: {
-        Booking: {
-          select: {
-            Id: true,
-            Status: true,
-            ProductImage: true
-          }
-        }
-      }
-    });
+    // Use raw SQL for pagination
+    const offset = (page - 1) * limit;
+    
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "DriverId" = ${driverId}
+      ORDER BY "InvoiceDate" DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
 
-    const totalCount = await prisma.invoice.count({
-      where: { DriverId: driverId }
-    });
+    const totalCountResult = await prisma.$queryRaw`
+      SELECT COUNT(*) as count FROM "Invoice" WHERE "DriverId" = ${driverId}
+    `;
+    
+    const totalCount = Array.isArray(totalCountResult) ? totalCountResult[0].count : totalCountResult.count;
 
     return res.status(200).json(responseObj(true, {
       invoices,
@@ -270,25 +232,21 @@ export const getCustomerInvoices = async (req: Request, res: Response): Promise<
     const limit = Number(req.query.limit) || 10;
     const customerId = req.user.Id;
 
-    const invoices = await prisma.invoice.findMany({
-      where: { CustomerId: customerId },
-      orderBy: { InvoiceDate: 'desc' },
-      take: limit,
-      skip: (page - 1) * limit,
-      include: {
-        Booking: {
-          select: {
-            Id: true,
-            Status: true,
-            ProductImage: true
-          }
-        }
-      }
-    });
+    // Use raw SQL for pagination
+    const offset = (page - 1) * limit;
+    
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "CustomerId" = ${customerId}
+      ORDER BY "InvoiceDate" DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
 
-    const totalCount = await prisma.invoice.count({
-      where: { CustomerId: customerId }
-    });
+    const totalCountResult = await prisma.$queryRaw`
+      SELECT COUNT(*) as count FROM "Invoice" WHERE "CustomerId" = ${customerId}
+    `;
+    
+    const totalCount = Array.isArray(totalCountResult) ? totalCountResult[0].count : totalCountResult.count;
 
     return res.status(200).json(responseObj(true, {
       invoices,
@@ -314,18 +272,13 @@ export const downloadInvoicePDF = async (req: Request, res: Response): Promise<a
       return res.status(400).json(responseObj(false, null, "Booking ID is required"));
     }
 
-    const invoice = await prisma.invoice.findUnique({
-      where: { BookingId: parseInt(bookingId) },
-      include: {
-        Booking: {
-          select: {
-            Id: true,
-            Status: true,
-            ProductImage: true
-          }
-        }
-      }
-    });
+    // Use raw SQL query to get invoice data
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "BookingId" = ${parseInt(bookingId)}
+    `;
+
+    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
 
     if (!invoice) {
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
@@ -348,18 +301,13 @@ export const downloadInvoicePDFById = async (req: Request, res: Response): Promi
       return res.status(400).json(responseObj(false, null, "Invoice ID is required"));
     }
 
-    const invoice = await prisma.invoice.findUnique({
-      where: { Id: parseInt(invoiceId) },
-      include: {
-        Booking: {
-          select: {
-            Id: true,
-            Status: true,
-            ProductImage: true
-          }
-        }
-      }
-    });
+    // Use raw SQL query to get invoice data
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "Id" = ${parseInt(invoiceId)}
+    `;
+
+    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
 
     if (!invoice) {
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
@@ -369,6 +317,122 @@ export const downloadInvoicePDFById = async (req: Request, res: Response): Promi
     generateInvoicePDF(invoice, res);
   } catch (error: any) {
     console.error("Error downloading invoice PDF:", error);
+    return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
+  }
+};
+
+// Auto download invoice as PDF by booking ID (enhanced version)
+export const autoDownloadInvoicePDF = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { bookingId } = req.params;
+    
+    if (!bookingId) {
+      return res.status(400).json(responseObj(false, null, "Booking ID is required"));
+    }
+
+    // Use raw SQL query to get invoice data
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "BookingId" = ${parseInt(bookingId)}
+    `;
+
+    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
+
+    if (!invoice) {
+      return res.status(404).json(responseObj(false, null, "Invoice not found"));
+    }
+
+    // Use the direct PDF generation for automatic download
+    generateInvoicePDFDirect(invoice, res);
+  } catch (error: any) {
+    console.error("Error auto downloading invoice PDF:", error);
+    return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
+  }
+};
+
+// Auto download invoice as PDF by invoice ID (enhanced version)
+export const autoDownloadInvoicePDFById = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { invoiceId } = req.params;
+    
+    if (!invoiceId) {
+      return res.status(400).json(responseObj(false, null, "Invoice ID is required"));
+    }
+
+    // Use raw SQL query to get invoice data
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "Id" = ${parseInt(invoiceId)}
+    `;
+
+    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
+
+    if (!invoice) {
+      return res.status(404).json(responseObj(false, null, "Invoice not found"));
+    }
+
+    // Use the direct PDF generation for automatic download
+    generateInvoicePDFDirect(invoice, res);
+  } catch (error: any) {
+    console.error("Error auto downloading invoice PDF:", error);
+    return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
+  }
+};
+
+// PUBLIC Auto download invoice as PDF by booking ID (NO AUTHENTICATION REQUIRED)
+export const publicAutoDownloadInvoicePDF = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { bookingId } = req.params;
+    
+    if (!bookingId) {
+      return res.status(400).json(responseObj(false, null, "Booking ID is required"));
+    }
+
+    // Use raw SQL query to get invoice data
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "BookingId" = ${parseInt(bookingId)}
+    `;
+
+    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
+
+    if (!invoice) {
+      return res.status(404).json(responseObj(false, null, "Invoice not found"));
+    }
+
+    // Use the direct PDF generation for automatic download
+    generateInvoicePDFDirect(invoice, res);
+  } catch (error: any) {
+    console.error("Error auto downloading invoice PDF:", error);
+    return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
+  }
+};
+
+// PUBLIC Auto download invoice as PDF by invoice ID (NO AUTHENTICATION REQUIRED)
+export const publicAutoDownloadInvoicePDFById = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { invoiceId } = req.params;
+    
+    if (!invoiceId) {
+      return res.status(400).json(responseObj(false, null, "Invoice ID is required"));
+    }
+
+    // Use raw SQL query to get invoice data
+    const invoices = await prisma.$queryRaw`
+      SELECT * FROM "Invoice" 
+      WHERE "Id" = ${parseInt(invoiceId)}
+    `;
+
+    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
+
+    if (!invoice) {
+      return res.status(404).json(responseObj(false, null, "Invoice not found"));
+    }
+
+    // Use the direct PDF generation for automatic download
+    generateInvoicePDFDirect(invoice, res);
+  } catch (error: any) {
+    console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
   }
 };

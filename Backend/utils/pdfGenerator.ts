@@ -1,4 +1,6 @@
 import type { Request, Response } from "express";
+import fs from 'fs';
+import path from 'path';
 
 // Simple PDF generation using HTML template and response headers
 // This creates a downloadable PDF-like response that browsers can handle
@@ -7,18 +9,137 @@ export const generateInvoicePDF = (invoiceData: any, res: Response) => {
   try {
     const html = generateInvoiceHTML(invoiceData);
     
-    // Set headers for PDF download
-    res.setHeader('Content-Type', 'application/pdf');
+    // Set headers for automatic PDF download
+    // Using HTML with proper headers that browsers will handle as downloadable content
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceData.InvoiceNumber}.pdf"`);
+    res.setHeader('Content-Length', Buffer.byteLength(html, 'utf8'));
     
-    // For now, we'll return HTML that can be converted to PDF by the browser
-    // or use a service like Puppeteer in production
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceData.InvoiceNumber}.html"`);
+    // Add JavaScript to automatically trigger print/download when page loads
+    const htmlWithAutoDownload = html.replace(
+      '</body>',
+      `
+      <script>
+        // Auto-trigger print dialog when page loads
+        window.onload = function() {
+          // Small delay to ensure page is fully rendered
+          setTimeout(function() {
+            window.print();
+          }, 500);
+        };
+        
+        // Also provide a manual download button as fallback
+        window.addEventListener('load', function() {
+          const printButton = document.createElement('button');
+          printButton.innerHTML = 'Download/Print PDF';
+          printButton.style.cssText = \`
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+          \`;
+          printButton.onclick = function() {
+            window.print();
+          };
+          document.body.appendChild(printButton);
+        });
+      </script>
+      </body>`
+    );
     
-    res.send(html);
+    res.send(htmlWithAutoDownload);
   } catch (error: any) {
     console.error('Error generating PDF:', error);
+    res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+};
+
+// Alternative PDF generation with better download experience
+export const generateInvoicePDFDirect = (invoiceData: any, res: Response) => {
+  try {
+    const html = generateInvoiceHTML(invoiceData);
+    
+    // Set headers for HTML content that will be converted to PDF by browser
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceData.InvoiceNumber}.html"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Pragma', 'no-cache');
+    
+    // Generate HTML with print-optimized styles and auto-print functionality
+    const pdfHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice ${invoiceData.InvoiceNumber}</title>
+    <style>
+        @page {
+            margin: 0.5in;
+            size: A4;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .no-print {
+            display: none !important;
+        }
+        @media print {
+            body {
+                padding: 0;
+                margin: 0;
+                background: white;
+            }
+            .invoice-container {
+                box-shadow: none;
+                border: none;
+                margin: 0;
+                max-width: none;
+            }
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            button {
+                display: none !important;
+            }
+            .print-button {
+                display: none !important;
+            }
+        }
+    </style>
+    <script>
+        // Auto-print when page loads
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 1000);
+        };
+    </script>
+</head>
+<body>
+    ${html}
+    <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #667eea; color: white; padding: 10px; border-radius: 5px; z-index: 1000;">
+        <button onclick="window.print()" style="background: white; color: #667eea; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            📄 Download PDF
+        </button>
+    </div>
+</body>
+</html>`;
+    
+    res.send(pdfHTML);
+  } catch (error: any) {
+    console.error('Error generating direct PDF:', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
   }
 };
@@ -226,10 +347,29 @@ const generateInvoiceHTML = (invoice: any): string => {
         @media print {
             body {
                 padding: 0;
+                margin: 0;
+                background: white;
             }
             .invoice-container {
                 box-shadow: none;
                 border: none;
+                margin: 0;
+                max-width: none;
+            }
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            button {
+                display: none !important;
+            }
+            .print-button {
+                display: none !important;
+            }
+            @page {
+                margin: 0.5in;
+                size: A4;
             }
         }
         

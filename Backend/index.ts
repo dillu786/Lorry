@@ -97,7 +97,7 @@ app.get("/api",(req:Request, res:Response)=>{
 // Mount the authentication routes
 app.use('/api/app/Owner', OwnerRoutes);
 app.use("/api/app/Driver", DriverRoutes);
-app.use("/api/app/Customer",CustomerRoutes);
+app.use("/api/app/Cutomer",CustomerRoutes);
 app.get("/api/app/vehicleTypes",getVehicleTypes);
 const server = http.createServer(app);
 const io = new Server(server, {

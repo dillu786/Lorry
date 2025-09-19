@@ -3,6 +3,7 @@ import bookingRoutes from "./booking"
 import authRoutes from "./auth"
 import vehicleRoutes from "./vehicleRoutes"
 import driverRoutes from "./driver"
+import invoiceRoutes from "./invoice"
 import { OwnerMiddleware } from "../../../middlewares/middleware"
 import {getOwnerDetails} from "../../../controllers/app/Owner/ownerDetails"
 
@@ -12,6 +13,7 @@ router.use("/booking",bookingRoutes);
 router.use("/auth",authRoutes);
 router.use("/vehicle",vehicleRoutes);
 router.use("/driver",driverRoutes);
+router.use("/invoice", invoiceRoutes);
 router.get("/ownerDetails",OwnerMiddleware,getOwnerDetails);
 
 export default router;
