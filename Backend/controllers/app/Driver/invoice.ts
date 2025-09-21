@@ -388,16 +388,95 @@ export const publicAutoDownloadInvoicePDF = async (req: Request, res: Response):
       return res.status(400).json(responseObj(false, null, "Booking ID is required"));
     }
 
-    // Use raw SQL query to get invoice data
-    const invoices = await prisma.$queryRaw`
+    // First, try to get existing invoice
+    const existingInvoices = await prisma.$queryRaw`
       SELECT * FROM "Invoice" 
       WHERE "BookingId" = ${parseInt(bookingId)}
     `;
 
-    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
+    let invoice = Array.isArray(existingInvoices) ? existingInvoices[0] : existingInvoices;
 
+    // If no existing invoice, check if booking exists and is completed
     if (!invoice) {
-      return res.status(404).json(responseObj(false, null, "Invoice not found"));
+      // Get booking with all related data
+      const booking = await prisma.bookings.findUnique({
+        where: { Id: parseInt(bookingId) },
+        include: {
+          User: {
+            select: {
+              Id: true,
+              Name: true,
+              MobileNumber: true,
+              Email: true
+            }
+          },
+          Driver: {
+            select: {
+              Id: true,
+              Name: true,
+              MobileNumber: true
+            }
+          },
+          Vehicle: {
+            select: {
+              Id: true,
+              Model: true,
+              VehicleNumber: true
+            }
+          }
+        }
+      });
+
+      if (!booking) {
+        return res.status(404).json(responseObj(false, null, "Booking not found"));
+      }
+
+      // Check if booking is completed
+      if (booking.Status !== "Completed") {
+        return res.status(400).json(responseObj(false, null, `Invoice can only be generated for completed trips. Current status: ${booking.Status}`));
+      }
+
+      // Generate invoice data on-the-fly from booking data
+      const invoiceData = {
+        Id: `temp-${bookingId}`,
+        InvoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        BookingId: booking.Id,
+        CustomerId: booking.User.Id,
+        CustomerName: booking.User.Name,
+        CustomerMobile: booking.User.MobileNumber,
+        CustomerEmail: booking.User.Email,
+        DriverId: booking.DriverId,
+        DriverName: booking.Driver?.Name || "Unknown Driver",
+        DriverMobile: booking.Driver?.MobileNumber || "",
+        OwnerId: null,
+        OwnerName: null,
+        VehicleId: booking.VehicleId,
+        VehicleModel: booking.Vehicle?.Model || null,
+        VehicleNumber: booking.Vehicle?.VehicleNumber || null,
+        PickUpLocation: booking.PickUpLocation,
+        DropLocation: booking.DropLocation,
+        Product: booking.Product || "General Cargo",
+        Distance: booking.Distance || "0",
+        Weight: booking.Weight || null,
+        VehicleType: booking.VehicleType,
+        FareAmount: parseFloat(booking.Fare) || 0,
+        DriverFee: parseFloat(booking.Fare) * 0.85 || 0, // 85% to driver
+        ConvenienceFee: parseFloat(booking.Fare) * 0.05 || 0, // 5% convenience fee
+        GstAmount: (parseFloat(booking.Fare) * 0.05 * 0.18) || 0, // 18% GST on convenience fee
+        GrandTotal: parseFloat(booking.Fare) || 0,
+        SubTotal: parseFloat(booking.Fare) * 0.95 || 0,
+        Rounding: 0,
+        PaymentMode: booking.PaymentMode,
+        BookingTime: booking.BookingTime,
+        StartTime: booking.StartTime,
+        EndTime: booking.EndTime || new Date(),
+        InvoiceDate: new Date(),
+        TripDuration: booking.EndTime && booking.StartTime ? 
+          Math.round((new Date(booking.EndTime).getTime() - new Date(booking.StartTime).getTime()) / (1000 * 60)) : 0,
+        Notes: `Generated on-the-fly for completed trip`
+      };
+
+      invoice = invoiceData;
     }
 
     // Use the direct PDF generation for automatic download
