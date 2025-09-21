@@ -126,8 +126,12 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
             include:{
                 Driver:{
                     select:{
+                        Id: true,
                         Name: true,
-                        MobileNumber: true
+                        MobileNumber: true,
+                        Latitude: true,
+                        Longitude: true,
+                        IsOnline: true
                     }
                 },
                 Vehicle:{
@@ -150,6 +154,28 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
             if(item.Vehicle?.VehicleImage){
              item.Vehicle.VehicleImage =  await getObjectSignedUrl(item.Vehicle.VehicleImage);
             }
+
+            // Add driver location information
+            if(item.Driver) {
+                const driverWithLocation = {
+                    ...item.Driver,
+                    currentLocation: {
+                        latitude: item.Driver.Latitude,
+                        longitude: item.Driver.Longitude,
+                        isOnline: item.Driver.IsOnline,
+                        lastUpdated: new Date().toISOString()
+                    }
+                };
+                
+                // Remove the individual location fields
+                const { Latitude, Longitude, IsOnline, ...driverWithoutLocation } = driverWithLocation;
+                
+                return {
+                    ...item,
+                    Driver: driverWithoutLocation
+                };
+            }
+
             return item
         }))
        
