@@ -101,7 +101,7 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
     try{
         //@ts-ignore
         const page = Number(req.query.page) || 1
-        const limit = Number(req.query.page) || 5
+        const limit = Number(req.query.limit) || 5
         const mobileNumber = req.user.MobileNumber;
         const user = await prisma.user.findFirst({ 
             where:{
@@ -118,7 +118,7 @@ export const currentBooking = async (req: Request, res: Response): Promise<any>=
             where:{
                 UserId: Number(user.Id),
                 Status:  { 
-                     in:["Confirmed","Pending"]                 
+                     in:["Confirmed","Pending","Ongoing"]                 
                 },
                 
             },
