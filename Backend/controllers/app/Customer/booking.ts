@@ -73,24 +73,43 @@ export const cancelBooking = async (req: Request, res: Response): Promise<any>=>
         const cancellationReason = req.body.cancellationReason;
         const mobileNumber = req.user.MobileNumber;
         const user = req.user;
+        
+        // Find the booking with user validation
         const booking = await prisma.bookings.findFirst({
             where:{
-                Id: Number(bookingId)
+                Id: Number(bookingId),
+                UserId: user.Id  // Ensure user owns this booking
             }
         })
+        
         if(!booking){   
-            return res.status(400).json(responseObj(false,null,"Booking not found"));
+            return res.status(400).json(responseObj(false,null,"Booking not found or you don't have permission to cancel this booking"));
         }
+
+        // Check if booking can be cancelled
+        if(booking.Status === "Completed"){
+            return res.status(400).json(responseObj(false,null,"Cannot cancel a completed trip"));
+        }
+        
+        if(booking.Status === "Cancelled"){
+            return res.status(400).json(responseObj(false,null,"Booking is already cancelled"));
+        }
+
+        // Only allow cancellation for Pending, Confirmed, or Ongoing bookings
+        if(!["Pending", "Confirmed", "Ongoing"].includes(booking.Status)){
+            return res.status(400).json(responseObj(false,null,`Cannot cancel booking with status: ${booking.Status}`));
+        }
+
         await prisma.bookings.update({
             where:{
                 Id: Number(bookingId),
-             
             },
             data:{
                 Status: "Cancelled",
                 CancellationReason: cancellationReason || "No reason provided"
             }
         })
+        
         res.status(200).json(responseObj(true,null,"Booking Cancelled Successfully"));
     }
     catch(error:any){
