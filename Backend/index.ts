@@ -226,6 +226,34 @@ export const notifyDriverOfAcceptedFare = (driverId: string, bookingId: string, 
   }
 };
 
+// Notify specific customer when trip starts
+export const notifyCustomerTripStarted = (customerId: string, bookingId: string) => {
+  const socketId = connectedCustomers.get(customerId);
+  if (socketId) {
+    io.to(socketId).emit("trip_started", {
+      bookingId: bookingId,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`Customer ${customerId} notified: trip started for booking ${bookingId}`);
+  } else {
+    console.log(`Customer ${customerId} is not connected to socket`);
+  }
+};
+
+// Notify specific customer when trip completes
+export const notifyCustomerTripCompleted = (customerId: string, bookingId: string) => {
+  const socketId = connectedCustomers.get(customerId);
+  if (socketId) {
+    io.to(socketId).emit("trip_completed", {
+      bookingId: bookingId,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`Customer ${customerId} notified: trip completed for booking ${bookingId}`);
+  } else {
+    console.log(`Customer ${customerId} is not connected to socket`);
+  }
+};
+
 async function main() {
   const fares = [
     {

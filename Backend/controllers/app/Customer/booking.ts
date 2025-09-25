@@ -88,15 +88,19 @@ export const cancelBooking = async (req: Request, res: Response): Promise<any>=>
 
         // Check if booking can be cancelled
         if(booking.Status === "Completed"){
-            return res.status(400).json(responseObj(false,null,"Cannot cancel a completed trip"));
+            return res.status(400).json(responseObj(false,null,"Trip is completed and cannot be cancelled"));
         }
         
+        if(booking.Status === "Ongoing"){
+            return res.status(400).json(responseObj(false,null,"Trip is ongoing and cannot be cancelled"));
+        }
+
         if(booking.Status === "Cancelled"){
             return res.status(400).json(responseObj(false,null,"Booking is already cancelled"));
         }
 
-        // Only allow cancellation for Pending, Confirmed, or Ongoing bookings
-        if(!["Pending", "Confirmed", "Ongoing"].includes(booking.Status)){
+        // Only allow cancellation for Pending or Confirmed bookings
+        if(!["Pending", "Confirmed"].includes(booking.Status)){
             return res.status(400).json(responseObj(false,null,`Cannot cancel booking with status: ${booking.Status}`));
         }
 

@@ -6,6 +6,7 @@ import { negotiateFareSchema } from "../../../types/Driver/types";
 import { getObjectSignedUrl, uploadFile,generateFileName } from "../../../utils/s3utils";
 import { haversineDistance } from "../../../utils/haversine";
 import { notifyDriverOfNegotiation, notifyCustomerOfAcceptedRide, notifyCustomerOfNegotiation } from "../../..";
+import { notifyCustomerTripStarted, notifyCustomerTripCompleted } from "../../../index";
 const prisma = new PrismaClient();
 
 export const newBookings = async (req: Request, res: Response): Promise<any> => {
@@ -20,12 +21,15 @@ export const newBookings = async (req: Request, res: Response): Promise<any> => 
         return res.status(400).json(responseObj(false, null, "Send valid driver latitude and longitude"));
       }
   
-      // Fetch all pending bookings without fare negotiations
+      // Fetch all pending bookings without fare negotiations, only from last 24 hours
       const allBookings = await prisma.bookings.findMany({
         where: {
           Status: 'Pending',
           FareNegotiations: {
             none: {} // Booking must not have any fare negotiation
+          },
+          CreatedDateTime: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
           }
         },
         include:{
@@ -274,7 +278,7 @@ export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
             }
             
             console.log("before update product image"+productImageName);
-            await prisma.bookings.update({
+            const updatedOnStart = await prisma.bookings.update({
                 where:{
                     Id: parseInt(bookingId)
                 },
@@ -284,6 +288,14 @@ export const onGoingRide = async (req: Request, res: Response): Promise<any> =>{
                 }
             })
             console.log("after update")
+            // Notify customer their trip started
+            try {
+                if (updatedOnStart?.UserId) {
+                    notifyCustomerTripStarted(updatedOnStart.UserId.toString(), bookingId);
+                }
+            } catch (e) {
+                console.log("notifyCustomerTripStarted error", e);
+            }
             res.status(200).json(responseObj(true,null,""));
             
         }
@@ -327,6 +339,15 @@ export const endTrip = async (req:Request, res:Response): Promise<any> =>{
         if (!invoiceResult.success) {
             console.error("Failed to generate invoice:", invoiceResult.message);
             // Still return success for the trip completion, but log the invoice error
+        }
+
+        // Notify customer their trip completed
+        try {
+            if (updatedBooking?.UserId) {
+                notifyCustomerTripCompleted(updatedBooking.UserId.toString(), String(bookingId));
+            }
+        } catch (e) {
+            console.log("notifyCustomerTripCompleted error", e);
         }
 
         res.status(200).json(responseObj(true,{
