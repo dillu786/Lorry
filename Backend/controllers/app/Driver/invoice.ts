@@ -342,8 +342,8 @@ export const autoDownloadInvoicePDF = async (req: Request, res: Response): Promi
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Render styled HTML with Puppeteer for high-quality PDF and force download
-    await generateInvoicePuppeteerAttachment(invoice, res);
+    // Use PDFKit for reliable PDF generation
+    generateInvoicePDFAttachment(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -479,8 +479,8 @@ export const publicAutoDownloadInvoicePDF = async (req: Request, res: Response):
       invoice = invoiceData;
     }
 
-    // Render styled HTML with Puppeteer for high-quality PDF and force download
-    await generateInvoicePuppeteerAttachment(invoice, res);
+    // Use PDFKit for reliable PDF generation
+    generateInvoicePDFAttachment(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -508,8 +508,8 @@ export const publicAutoDownloadInvoicePDFById = async (req: Request, res: Respon
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Render styled HTML with Puppeteer for high-quality PDF and force download
-    await generateInvoicePuppeteerAttachment(invoice, res);
+    // Use PDFKit for reliable PDF generation
+    generateInvoicePDFAttachment(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));

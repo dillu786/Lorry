@@ -1,1199 +1,576 @@
-import type { Request, Response } from "express";
-// Using pdfkit to generate a real PDF stream for download
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const PDFDocument: any = require('pdfkit');
-import puppeteer from 'puppeteer';
-import fs from 'fs';
-import path from 'path';
+import type { Response } from "express";
+import puppeteer, { Browser } from "puppeteer";
+import PDFDocument from "pdfkit";
 
-// Simple PDF generation using HTML template and response headers
-// This creates a downloadable PDF-like response that browsers can handle
+/**
+ * Represents the data structure for an invoice.
+ * All monetary values should be in the smallest currency unit (e.g., cents, paise)
+ * or handled carefully as floating-point numbers. For this example, we assume numbers.
+ */
+export interface InvoiceData {
+  InvoiceNumber: string;
+  BookingId?: string;
+  CustomerName: string;
+  CustomerMobile: string;
+  CustomerEmail?: string;
+  DriverName: string;
+  DriverMobile: string;
+  OwnerName?: string;
+  PickUpLocation: string;
+  DropLocation: string;
+  Product?: string;
+  Distance: number;
+  VehicleType: string;
+  TripDuration?: number; // In minutes or hours
+  DriverFee: number;
+  ConvenienceFee: number;
+  GstAmount: number;
+  GrandTotal: number;
+}
 
-export const generateInvoicePDF = (invoiceData: any, res: Response) => {
-  try {
-    const html = generateInvoiceHTML(invoiceData);
-    
-    // Set headers for HTML that opens in browser for print-to-PDF
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
-    // Create a complete HTML document optimized for PDF generation
-    const pdfHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Invoice ${invoiceData.InvoiceNumber}</title>
-    <style>
-        @page {
-            margin: 0.5in;
-            size: A4;
-        }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #fff;
-            padding: 0;
-            margin: 0;
-        }
-        .invoice-container {
-            max-width: 100%;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 300;
-        }
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-        .invoice-details {
-            padding: 0;
-        }
-        .invoice-info {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-        .invoice-number {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-            flex: 1;
-            margin-right: 20px;
-        }
-        .invoice-number h3 {
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-        .invoice-number p {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #333;
-        }
-        .date-info {
-            text-align: right;
-            padding: 20px;
-            flex: 1;
-        }
-        .date-info p {
-            margin-bottom: 5px;
-        }
-        .parties {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-        .party {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-        }
-        .party h4 {
-            color: #667eea;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        .party p {
-            margin-bottom: 5px;
-        }
-        .trip-details {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        .trip-details h4 {
-            color: #667eea;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        .trip-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .trip-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            background: white;
-            border-radius: 5px;
-            border-left: 3px solid #667eea;
-        }
-        .trip-item strong {
-            color: #333;
-        }
-        .fare-breakdown {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        .fare-breakdown h4 {
-            color: #667eea;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        .fare-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #e9ecef;
-        }
-        .fare-item:last-child {
-            border-bottom: none;
-            font-weight: bold;
-            font-size: 1.1em;
-            background: #667eea;
-            color: white;
-            padding: 15px;
-            margin: 10px -20px -20px -20px;
-            border-radius: 0 0 8px 8px;
-        }
-        .footer {
-            background: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            border-top: 1px solid #e9ecef;
-            margin-top: 30px;
-        }
-        .footer p {
-            color: #666;
-            font-size: 0.9em;
-        }
-        @media print {
-            body {
-                padding: 0;
-                margin: 0;
-                background: white;
-            }
-            .invoice-container {
-                box-shadow: none;
-                border: none;
-                margin: 0;
-                max-width: none;
-            }
-            .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-            }
-            .no-print {
-                display: none !important;
-            }
-        }
-        .download-button {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        .download-button:hover {
-            background: #5a6fd8;
-        }
-    </style>
-    <script>
-        // Auto-trigger print dialog when page loads
-        window.onload = function() {
-            setTimeout(function() {
-                // Check if we're in a new window/tab for printing
-                if (window.opener || window.parent !== window) {
-                    window.print();
-                } else {
-                    // If opened directly, show instructions
-                    document.querySelector('.download-button').style.display = 'block';
-                }
-            }, 1000);
-        };
-        
-        // Function to trigger print/download
-        function downloadPDF() {
-            window.print();
-        }
-        
-        // Handle print dialog
-        window.addEventListener('beforeprint', function() {
-            document.title = 'Invoice ${invoiceData.InvoiceNumber} - Print';
-        });
-        
-        window.addEventListener('afterprint', function() {
-            // Close the window after printing if opened in new tab
-            if (window.opener) {
-                window.close();
-            }
-        });
-    </script>
-</head>
-<body>
-    <button class="download-button no-print" onclick="downloadPDF()">
-        📄 Download PDF
-    </button>
-    ${html}
-</body>
-</html>`;
-    
-    res.send(pdfHTML);
-  } catch (error: any) {
-    console.error('Error generating PDF:', error);
-    res.status(500).json({ error: 'Failed to generate PDF' });
+/**
+ * Helper function to format currency as "Rs X,XXX.XX" using Indian numbering system (lakhs/crores).
+ * This ensures consistency across both PDFKit and HTML outputs, and meets the user request for "Rs".
+ * @param amount - The monetary value.
+ * @returns A formatted currency string.
+ */
+const formatRupees = (amount: number): string => {
+  // Use Intl.NumberFormat for proper Indian numbering system (commas) and ensuring 2 decimal places.
+  const formattedNumber = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  // Prepend "Rs " to meet the specific user request.
+  return `Rs ${formattedNumber}`;
+};
+
+/**
+ * Generates a URL-safe filename for the invoice PDF.
+ * @param invoice - The invoice data object.
+ * @param filename - An optional preferred filename.
+ * @returns A sanitized PDF filename.
+ */
+const getSafeFilename = (invoice: InvoiceData, filename?: string): string => {
+  const rawName =
+    filename ||
+    `invoice-${invoice.InvoiceNumber || invoice.BookingId || "download"}`;
+  // Replace invalid characters with an underscore and ensure it ends with .pdf
+  return rawName.replace(/[^a-zA-Z0-9-_.]/g, "_") + ".pdf";
+};
+
+/**
+ * Sets the necessary HTTP headers for a PDF file response.
+ * @param res - The Express response object.
+ * @param filename - The name for the downloaded file.
+ * @param length - The optional content length of the PDF buffer.
+ */
+const setPDFHeaders = (res: Response, filename: string, length?: number) => {
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  if (length) {
+    res.setHeader("Content-Length", length.toString());
   }
 };
 
-// Alternative PDF generation with better download experience
-export const generateInvoicePDFDirect = (invoiceData: any, res: Response) => {
+/**
+ * Generates and sends a mobile-optimized HTML preview of the invoice.
+ * @param invoiceData - The data for the invoice.
+ * @param res - The Express response object.
+ */
+export const generateInvoicePDF = (invoiceData: InvoiceData, res: Response) => {
   try {
-    const html = generateInvoiceHTML(invoiceData);
-    
-    // Set headers for HTML that opens in browser for print-to-PDF
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
-    // Create a simple HTML page that opens in new window and prints
-    const printHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Invoice ${invoiceData.InvoiceNumber}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 8px;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 2.5em;
-        }
-        .header p {
-            margin: 10px 0 0 0;
-            opacity: 0.9;
-        }
-        .invoice-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .info-box {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        .info-box h3 {
-            margin: 0 0 10px 0;
-            color: #667eea;
-        }
-        .parties {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .party {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-        }
-        .party h4 {
-            margin: 0 0 15px 0;
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        .trip-details {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        .trip-details h4 {
-            margin: 0 0 15px 0;
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        .trip-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .trip-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            background: white;
-            border-radius: 5px;
-            border-left: 3px solid #667eea;
-        }
-        .fare-breakdown {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        .fare-breakdown h4 {
-            margin: 0 0 15px 0;
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        .fare-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #e9ecef;
-        }
-        .fare-item:last-child {
-            border-bottom: none;
-            font-weight: bold;
-            font-size: 1.1em;
-            background: #667eea;
-            color: white;
-            padding: 15px;
-            margin: 10px -20px -20px -20px;
-            border-radius: 0 0 8px 8px;
-        }
-        .footer {
-            background: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            border-top: 1px solid #e9ecef;
-            margin-top: 30px;
-        }
-        .footer p {
-            margin: 5px 0;
-            color: #666;
-            font-size: 0.9em;
-        }
-        .print-button {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        .print-button:hover {
-            background: #5a6fd8;
-        }
-        @media print {
-            body {
-                background: white;
-                padding: 0;
-            }
-            .container {
-                box-shadow: none;
-                border: none;
-                margin: 0;
-                max-width: none;
-            }
-            .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-            }
-            .print-button {
-                display: none !important;
-            }
-            @page {
-                margin: 0.5in;
-                size: A4;
-            }
-        }
-    </style>
-    <script>
-        window.onload = function() {
-            // Auto-print when page loads
-            setTimeout(function() {
-                window.print();
-            }, 1000);
-        };
-        
-        function printPDF() {
-            window.print();
-        }
-        
-        window.addEventListener('afterprint', function() {
-            // Close window after printing
-            window.close();
-        });
-    </script>
-</head>
-<body>
-    <button class="print-button" onclick="printPDF()">
-        📄 Print PDF
-    </button>
-    <div class="container">
-        <div class="header">
-            <h1>INVOICE</h1>
-            <p>ReturnLorry - Your Trusted Logistics Partner</p>
-        </div>
-        
-        <div class="invoice-info">
-            <div class="info-box">
-                <h3>Invoice Number</h3>
-                <p style="font-size: 1.2em; font-weight: bold; margin: 0;">${invoiceData.InvoiceNumber}</p>
-            </div>
-            <div class="info-box">
-                <h3>Invoice Date</h3>
-                <p style="margin: 0;">${new Date().toLocaleDateString('en-IN')}</p>
-                <p style="margin: 5px 0 0 0;"><strong>Booking ID:</strong> ${invoiceData.BookingId || 'N/A'}</p>
-            </div>
-        </div>
-        
-        <div class="parties">
-            <div class="party">
-                <h4>Customer Details</h4>
-                <p><strong>Name:</strong> ${invoiceData.CustomerName || 'N/A'}</p>
-                <p><strong>Mobile:</strong> ${invoiceData.CustomerMobile || 'N/A'}</p>
-                ${invoiceData.CustomerEmail ? `<p><strong>Email:</strong> ${invoiceData.CustomerEmail}</p>` : ''}
-            </div>
-            <div class="party">
-                <h4>Driver Details</h4>
-                <p><strong>Name:</strong> ${invoiceData.DriverName || 'N/A'}</p>
-                <p><strong>Mobile:</strong> ${invoiceData.DriverMobile || 'N/A'}</p>
-                ${invoiceData.OwnerName ? `<p><strong>Owner:</strong> ${invoiceData.OwnerName}</p>` : ''}
-            </div>
-        </div>
-        
-        <div class="trip-details">
-            <h4>Trip Information</h4>
-            <div class="trip-grid">
-                <div class="trip-item">
-                    <span><strong>Pickup:</strong></span>
-                    <span>${invoiceData.PickUpLocation || 'N/A'}</span>
-                </div>
-                <div class="trip-item">
-                    <span><strong>Drop:</strong></span>
-                    <span>${invoiceData.DropLocation || 'N/A'}</span>
-                </div>
-                <div class="trip-item">
-                    <span><strong>Product:</strong></span>
-                    <span>${invoiceData.Product || 'N/A'}</span>
-                </div>
-                <div class="trip-item">
-                    <span><strong>Distance:</strong></span>
-                    <span>${invoiceData.Distance || 'N/A'} km</span>
-                </div>
-                <div class="trip-item">
-                    <span><strong>Vehicle Type:</strong></span>
-                    <span>${invoiceData.VehicleType || 'N/A'}</span>
-                </div>
-                <div class="trip-item">
-                    <span><strong>Duration:</strong></span>
-                    <span>${invoiceData.TripDuration || 'N/A'} minutes</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="fare-breakdown">
-            <h4>Fare Breakdown</h4>
-            <div class="fare-item">
-                <span>Driver Fee</span>
-                <span>₹${(invoiceData.DriverFee || 0).toFixed(2)}</span>
-            </div>
-            <div class="fare-item">
-                <span>Convenience Fee (5%)</span>
-                <span>₹${(invoiceData.ConvenienceFee || 0).toFixed(2)}</span>
-            </div>
-            <div class="fare-item">
-                <span>GST (18%)</span>
-                <span>₹${(invoiceData.GstAmount || 0).toFixed(2)}</span>
-            </div>
-            <div class="fare-item">
-                <span><strong>Total Amount</strong></span>
-                <span><strong>₹${(invoiceData.GrandTotal || 0).toFixed(2)}</strong></span>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <p>Thank you for choosing ReturnLorry!</p>
-            <p>For any queries, contact us at support@returnlorry.com</p>
-            <p>This is a computer-generated invoice.</p>
-        </div>
-    </div>
-</body>
-</html>`;
-    
-    // Generate HTML with print-optimized styles and auto-print functionality
-    const pdfHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Invoice ${invoiceData.InvoiceNumber}</title>
-    <style>
-        @page {
-            margin: 0.5in;
-            size: A4;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        .no-print {
-            display: none !important;
-        }
-        @media print {
-            body {
-                padding: 0;
-                margin: 0;
-                background: white;
-            }
-            .invoice-container {
-                box-shadow: none;
-                border: none;
-                margin: 0;
-                max-width: none;
-            }
-            .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-            }
-            button {
-                display: none !important;
-            }
-            .print-button {
-                display: none !important;
-            }
-        }
-    </style>
-    <script>
-        // Auto-print when page loads
-        window.onload = function() {
-            setTimeout(function() {
-                // Check if we're in a new window/tab for printing
-                if (window.opener || window.parent !== window) {
-                    window.print();
-                } else {
-                    // If opened directly, show instructions
-                    document.querySelector('.download-button').style.display = 'block';
-                }
-            }, 1000);
-        };
-        
-        // Function to trigger print/download
-        function downloadPDF() {
-            window.print();
-        }
-        
-        // Handle print dialog
-        window.addEventListener('beforeprint', function() {
-            document.title = 'Invoice ${invoiceData.InvoiceNumber} - Print';
-        });
-        
-        window.addEventListener('afterprint', function() {
-            // Close the window after printing if opened in new tab
-            if (window.opener) {
-                window.close();
-            }
-        });
-    </script>
-</head>
-<body>
-    ${html}
-    <div class="no-print" style="position: fixed; top: 10px; right: 10px; background: #667eea; color: white; padding: 10px; border-radius: 5px; z-index: 1000;">
-        <button onclick="window.print()" style="background: white; color: #667eea; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-            📄 Download PDF
-        </button>
-    </div>
-</body>
-</html>`;
-    
-    res.send(printHTML);
-  } catch (error: any) {
-    console.error('Error generating direct PDF:', error);
-    res.status(500).json({ error: 'Failed to generate PDF' });
+    const html = generateMobileOptimizedHTML(invoiceData);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  } catch (error) {
+    console.error("Error generating HTML invoice preview:", error);
+    res.status(500).json({ error: "Failed to generate invoice HTML" });
   }
 };
 
-// Generate a real PDF and force download via Content-Disposition: attachment
-export const generateInvoicePDFAttachment = (invoiceData: any, res: Response, filename?: string) => {
+/**
+ * The primary endpoint to generate and stream an invoice PDF.
+ * It attempts to use Puppeteer for high-fidelity rendering and falls back to PDFKit on failure.
+ * @param invoiceData - The data for the invoice.
+ * @param res - The Express response object.
+ */
+export const generateInvoicePDFDirect = async (
+  invoiceData: InvoiceData,
+  res: Response
+) => {
   try {
-    const doc = new PDFDocument({ size: 'A4', margin: 36 });
-
-    const safeFilename = (filename || `invoice-${invoiceData.InvoiceNumber || invoiceData.BookingId || 'download'}`).replace(/[^a-zA-Z0-9-_\.]/g, '_') + '.pdf';
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-
-    doc.pipe(res);
-
-    // Header
-    doc
-      .fontSize(22)
-      .fillColor('#333')
-      .text('INVOICE', { align: 'center' })
-      .moveDown(0.5);
-
-    doc
-      .fontSize(10)
-      .fillColor('#555')
-      .text('ReturnLorry - Your Trusted Logistics Partner', { align: 'center' })
-      .moveDown(1);
-
-    // Invoice Info
-    const invoiceNumber = invoiceData.InvoiceNumber || `INV-${Date.now()}`;
-    const bookingId = invoiceData.BookingId ?? '';
-    const invoiceDate = new Date().toLocaleDateString('en-IN');
-
-    doc
-      .fontSize(12)
-      .fillColor('#000')
-      .text(`Invoice Number: ${invoiceNumber}`)
-      .text(`Invoice Date: ${invoiceDate}`)
-      .text(`Booking ID: ${bookingId}`)
-      .moveDown(0.5);
-
-    // Parties
-    doc
-      .fontSize(14)
-      .fillColor('#333')
-      .text('Customer Details', { underline: true })
-      .fontSize(12)
-      .fillColor('#000')
-      .text(`Name: ${invoiceData.CustomerName || 'N/A'}`)
-      .text(`Mobile: ${invoiceData.CustomerMobile || 'N/A'}`)
-      .text(invoiceData.CustomerEmail ? `Email: ${invoiceData.CustomerEmail}` : '')
-      .moveDown(0.5);
-
-    doc
-      .fontSize(14)
-      .fillColor('#333')
-      .text('Driver Details', { underline: true })
-      .fontSize(12)
-      .fillColor('#000')
-      .text(`Name: ${invoiceData.DriverName || 'N/A'}`)
-      .text(`Mobile: ${invoiceData.DriverMobile || 'N/A'}`)
-      .moveDown(0.5);
-
-    // Trip Info
-    doc
-      .fontSize(14)
-      .fillColor('#333')
-      .text('Trip Information', { underline: true })
-      .fontSize(12)
-      .fillColor('#000')
-      .text(`Pickup: ${invoiceData.PickUpLocation || 'N/A'}`)
-      .text(`Drop: ${invoiceData.DropLocation || 'N/A'}`)
-      .text(`Product: ${invoiceData.Product || 'N/A'}`)
-      .text(`Distance: ${invoiceData.Distance || '0'} km`)
-      .text(`Vehicle Type: ${invoiceData.VehicleType || 'N/A'}`)
-      .text(`Duration: ${invoiceData.TripDuration || 0} minutes`)
-      .moveDown(0.5);
-
-    // Fare breakdown
-    const driverFee = Number(invoiceData.DriverFee || 0);
-    const convenienceFee = Number(invoiceData.ConvenienceFee || 0);
-    const gst = Number(invoiceData.GstAmount || 0);
-    const total = Number(invoiceData.GrandTotal || 0);
-
-    doc
-      .fontSize(14)
-      .fillColor('#333')
-      .text('Fare Breakdown', { underline: true })
-      .fontSize(12)
-      .fillColor('#000')
-      .text(`Driver Fee: ₹${driverFee.toFixed(2)}`)
-      .text(`Convenience Fee (5%): ₹${convenienceFee.toFixed(2)}`)
-      .text(`GST (18%): ₹${gst.toFixed(2)}`)
-      .moveDown(0.25)
-      .fontSize(13)
-      .fillColor('#111')
-      .text(`Total Amount: ₹${total.toFixed(2)}`)
-      .moveDown(1);
-
-    doc
-      .fontSize(10)
-      .fillColor('#666')
-      .text('Thank you for choosing ReturnLorry! For any queries, contact support@returnlorry.com', { align: 'center' });
-
-    doc.end();
-  } catch (error: any) {
-    console.error('Error generating PDF attachment:', error);
-    res.status(500).json({ error: 'Failed to generate PDF' });
+    await generateInvoicePuppeteerAttachment(invoiceData, res);
+  } catch (error) {
+    // Note: In a real environment, you might inspect the error to decide if fallback is appropriate
+    console.warn("Puppeteer PDF generation failed. Falling back to PDFKit.", error);
+    generateInvoicePDFAttachment(invoiceData, res);
   }
 };
 
-// Render the rich styled HTML with Puppeteer and force download as a PDF attachment
-export const generateInvoicePuppeteerAttachment = async (
-  invoiceData: any,
+/**
+ * Generates an invoice PDF using PDFKit as a fallback.
+ * This method is less visually rich but highly reliable and dependency-light.
+ * @param invoiceData - The data for the invoice.
+ * @param res - The Express response object.
+ * @param filename - Optional custom filename.
+ */
+export const generateInvoicePDFAttachment = (
+  invoiceData: InvoiceData,
   res: Response,
   filename?: string
 ) => {
-  const safeFilename = (filename || `invoice-${invoiceData.InvoiceNumber || invoiceData.BookingId || 'download'}`).replace(/[^a-zA-Z0-9-_\.]/g, '_') + '.pdf';
-  let browser: any = null;
   try {
-    const html = generateInvoiceHTML(invoiceData);
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
-    const page = await browser.newPage();
-    
-    // Set viewport for consistent rendering
-    await page.setViewport({ width: 1200, height: 800 });
-    
-    // Set content and wait for fonts/styles to load
-    await page.setContent(html, { 
-      waitUntil: ['networkidle0', 'domcontentloaded'],
-      timeout: 30000 
-    });
-    
-    // Wait a bit more for any dynamic content
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' },
-      preferCSSPageSize: false,
-      displayHeaderFooter: false
-    });
-    
-    await page.close();
+    const safeFilename = getSafeFilename(invoiceData, filename);
+    setPDFHeaders(res, safeFilename);
 
-    // Set proper headers for PDF download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
-    res.setHeader('Content-Length', pdfBuffer.length.toString());
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    // Note: The A4 content area is from x=50 to x=550 (612 total width - 2*50 margin)
+    const rightEdge = 550; 
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    doc.pipe(res);
+
+    // --- Helper Functions for PDFKit ---
+    const drawHeader = () => {
+        // Placeholder for a logo, or use text
+        doc.fontSize(24).fillColor('#4f46e5').font('Helvetica-Bold').text('ReturnLorry', 50, 50);
+        doc.fontSize(10).fillColor('#6b7280').font('Helvetica').text('Your Trusted Logistics Partner', 50, 75);
+        
+        doc.fontSize(16).fillColor('#111827').font('Helvetica-Bold').text('INVOICE', rightEdge, 65, { align: 'right' });
+        doc.moveDown();
+    };
+
+    const drawInvoiceInfo = () => {
+        const infoTop = 120;
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Invoice Number:', 50, infoTop);
+        doc.text('Invoice Date:', 50, infoTop + 15);
+        doc.text('Booking ID:', 50, infoTop + 30);
+
+        doc.font('Helvetica');
+        // Ensure values are aligned properly below the labels
+        doc.text(invoiceData.InvoiceNumber, 150, infoTop);
+        doc.text(new Date().toLocaleDateString('en-IN'), 150, infoTop + 15);
+        doc.text(invoiceData.BookingId || 'N/A', 150, infoTop + 30);
+    };
+
+    const drawPartyDetails = () => {
+        const partyTop = 200;
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#6b7280');
+        doc.text('BILLED TO', 50, partyTop);
+        doc.text('DRIVER DETAILS', 300, partyTop);
+
+        doc.strokeColor('#e5e7eb').moveTo(50, partyTop + 15).lineTo(rightEdge, partyTop + 15).stroke();
+        
+        doc.font('Helvetica-Bold').fillColor('#111827').text(invoiceData.CustomerName, 50, partyTop + 25);
+        doc.font('Helvetica').fillColor('#374151').text(invoiceData.CustomerMobile, 50, partyTop + 40);
+
+        doc.font('Helvetica-Bold').fillColor('#111827').text(invoiceData.DriverName, 300, partyTop + 25);
+        doc.font('Helvetica').fillColor('#374151').text(invoiceData.DriverMobile, 300, partyTop + 40);
+    };
     
-    // Send the PDF buffer
-    res.end(pdfBuffer);
-  } catch (error: any) {
-    console.error('Error generating Puppeteer PDF:', error);
-    res.status(500).json({ error: 'Failed to generate PDF: ' + error.message });
-  } finally {
-    if (browser) {
-      try { await browser.close(); } catch {}
+    /**
+     * Refactored drawTripInfo to use 4 separate lines to prevent horizontal text overlap
+     * for long address strings in PDFKit.
+     */
+    const drawTripInfo = () => {
+        const tripTop = 280;
+        let y = tripTop;
+        
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#6b7280').text('TRIP INFORMATION', 50, y);
+        y += 15;
+        doc.strokeColor('#e5e7eb').moveTo(50, y).lineTo(rightEdge, y).stroke();
+        y += 10;
+
+        doc.font('Helvetica').fillColor('#374151');
+        
+        // Line 1: From Location (full width)
+        doc.text(`From: ${invoiceData.PickUpLocation}`, 50, y, { width: rightEdge - 50 });
+        y += 20;
+        
+        // Line 2: To Location (full width)
+        doc.text(`To: ${invoiceData.DropLocation}`, 50, y, { width: rightEdge - 50 }); 
+        y += 20;
+        
+        // Line 3: Distance
+        doc.text(`Distance: ${invoiceData.Distance} km`, 50, y);
+        y += 20;
+        
+        // Line 4: Vehicle Type
+        doc.text(`Vehicle: ${invoiceData.VehicleType}`, 50, y); 
+        // No y update needed here as it's the last item
+    };
+
+    /**
+     * Corrected function: Uses the new formatRupees helper and correct alignment.
+     */
+    const drawFareTable = () => {
+        const tableTop = 380; // Adjusted table position due to extra lines in Trip Info
+        
+        // Table Header
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#6b7280');
+        doc.text('DESCRIPTION', 50, tableTop);
+        doc.text('AMOUNT', rightEdge, tableTop, { align: 'right' }); 
+        doc.strokeColor('#e5e7eb').moveTo(50, tableTop + 15).lineTo(rightEdge, tableTop + 15).stroke();
+
+        // Table Rows
+        const items = [
+            { label: 'Driver Fee', value: invoiceData.DriverFee },
+            { label: 'Convenience Fee', value: invoiceData.ConvenienceFee },
+            { label: 'GST', value: invoiceData.GstAmount },
+        ];
+        let y = tableTop + 25;
+        items.forEach(item => {
+            doc.fontSize(10).font('Helvetica').fillColor('#111827');
+            doc.text(item.label, 50, y);
+            // Use formatRupees for currency formatting
+            doc.text(formatRupees(item.value), rightEdge, y, { align: 'right' }); 
+            y += 20;
+        });
+
+        // Total
+        // Line spanning the total section
+        doc.strokeColor('#e5e7eb').moveTo(350, y + 10).lineTo(rightEdge, y + 10).stroke(); 
+        doc.fontSize(12).font('Helvetica-Bold');
+        doc.text('Grand Total', 350, y + 20);
+        // Use formatRupees for currency formatting
+        doc.text(formatRupees(invoiceData.GrandTotal), rightEdge, y + 20, { align: 'right' }); 
+    };
+
+    const drawFooter = () => {
+        doc.fontSize(9).fillColor('#6b7280').text(
+            'Thank you for choosing ReturnLorry! For any queries, please contact support@returnlorry.com.',
+            50, 750, { align: 'center', width: 500 } // Width 500 centers it between 50 and 550
+        );
+    };
+    
+    // --- Document Assembly ---
+    drawHeader();
+    drawInvoiceInfo();
+    drawPartyDetails();
+    drawTripInfo();
+    drawFareTable();
+    drawFooter();
+
+    doc.end();
+  } catch (error) {
+    console.error("Error generating PDF with PDFKit:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate PDF" });
     }
   }
 };
 
-const generateInvoiceHTML = (invoice: any): string => {
-  const currentDate = new Date().toLocaleDateString('en-IN');
-  
+/**
+ * Generates an invoice PDF using Puppeteer for high-fidelity HTML-to-PDF conversion.
+ * @param invoiceData - The data for the invoice.
+ * @param res - The Express response object.
+ * @param filename - Optional custom filename.
+ * @throws An error if Puppeteer fails to launch or generate the PDF.
+ */
+export const generateInvoicePuppeteerAttachment = async (
+  invoiceData: InvoiceData,
+  res: Response,
+  filename?: string
+) => {
+  const safeFilename = getSafeFilename(invoiceData, filename);
+  let browser: Browser | null = null;
+
+  try {
+    const html = generateMobileOptimizedHTML(invoiceData);
+    
+    // Note: Puppeteer setup often needs customization for deployment environments.
+    // Assuming a standard setup for local testing or controlled environment.
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--font-render-hinting=none"],
+    });
+
+    const page = await browser.newPage();
+    // A standard A4 paper is roughly 8.27 x 11.69 inches.
+    await page.setViewport({ width: 794, height: 1122 });
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    
+    // Ensure fonts are fully loaded
+    await page.evaluateHandle("document.fonts.ready");
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: "0.4in",
+        right: "0.4in",
+        bottom: "0.4in",
+        left: "0.4in",
+      },
+    });
+
+    setPDFHeaders(res, safeFilename, pdfBuffer.length);
+    res.end(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating PDF with Puppeteer:", error);
+    throw error; // Propagate error to be caught by the calling function for fallback
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+};
+
+/**
+ * Generates a modern, professional, and mobile-responsive HTML string for an invoice.
+ * @param invoice - The invoice data.
+ * @returns An HTML string.
+ */
+const generateMobileOptimizedHTML = (invoice: InvoiceData): string => {
+  const currentDate = new Date().toLocaleDateString("en-IN", {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
   return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice ${invoice.InvoiceNumber}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Invoice ${invoice.InvoiceNumber}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        :root {
+          --brand-color: #4f46e5;
+          --text-primary: #111827;
+          --text-secondary: #374151;
+          --text-light: #6b7280;
+          --border-color: #e5e7eb;
+          --background-light: #f9fafb;
+          --background-white: #ffffff;
         }
-        
         body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #fff;
-            padding: 20px;
+          font-family: 'Inter', sans-serif;
+          margin: 0;
+          padding: 0;
+          background-color: var(--background-light);
+          color: var(--text-primary);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
-        
         .invoice-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          max-width: 800px;
+          margin: 24px auto;
+          padding: 24px;
+          background-color: var(--background-white);
+          border-radius: 12px;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+        /* Header */
+        .invoice-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding-bottom: 24px;
+          border-bottom: 1px solid var(--border-color);
         }
-        
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 300;
+        .company-logo svg { height: 40px; }
+        .invoice-title { text-align: right; }
+        .invoice-title h1 {
+          font-size: 2.25rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0;
         }
-        
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
+        .invoice-title p {
+          font-size: 0.875rem;
+          color: var(--text-light);
+          margin: 4px 0 0;
         }
-        
+        /* Details Section */
         .invoice-details {
-            padding: 30px;
+          display: flex;
+          justify-content: space-between;
+          padding: 24px 0;
         }
-        
-        .invoice-info {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
+        .detail-group { line-height: 1.6; }
+        .detail-group h3 {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-light);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin: 0 0 8px;
         }
-        
-        .invoice-number {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+        .detail-group p { margin: 0; font-size: 0.875rem; }
+        .detail-group .name { font-weight: 600; color: var(--text-primary); }
+
+        /* Fare Table */
+        .fare-table { width: 100%; border-collapse: collapse; }
+        .fare-table thead th {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-light);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 12px;
+          text-align: left;
+          border-bottom: 1px solid var(--border-color);
         }
-        
-        .invoice-number h3 {
-            color: #667eea;
-            margin-bottom: 5px;
+        .fare-table tbody td {
+          padding: 12px;
+          font-size: 0.875rem;
+          border-bottom: 1px solid var(--border-color);
         }
+        .fare-table th:last-child, .fare-table td:last-child { text-align: right; }
         
-        .invoice-number p {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #333;
+        /* Totals section */
+        .invoice-summary {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 24px;
         }
-        
-        .date-info {
-            text-align: right;
-            padding: 20px;
+        /* INCREASED WIDTH from 40% to 50% for better alignment */
+        .summary-box { width: 50%; max-width: 300px; } 
+        .summary-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 8px 0;
+          font-size: 0.875rem;
         }
-        
-        .date-info p {
-            margin-bottom: 5px;
+        .summary-row.grand-total {
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: var(--brand-color);
+          border-top: 2px solid var(--border-color);
+          margin-top: 8px;
+          padding-top: 12px;
         }
-        
-        .parties {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
+        .summary-label { color: var(--text-secondary); }
+        .summary-value { font-weight: 500; }
+
+        /* Footer */
+        .invoice-footer {
+          text-align: center;
+          margin-top: 32px;
+          padding-top: 24px;
+          border-top: 1px solid var(--border-color);
+          font-size: 0.875rem;
+          color: var(--text-light);
         }
-        
-        .party {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
+        @media (max-width: 640px) {
+          .invoice-container { padding: 16px; margin: 16px; }
+          .invoice-header, .invoice-details { flex-direction: column; gap: 20px; }
+          .invoice-title { text-align: left; }
+          .invoice-summary { justify-content: center; }
+          .summary-box { width: 100%; max-width: none; }
         }
-        
-        .party h4 {
-            color: #667eea;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        
-        .party p {
-            margin-bottom: 5px;
-        }
-        
-        .trip-details {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        
-        .trip-details h4 {
-            color: #667eea;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        
-        .trip-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        
-        .trip-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            background: white;
-            border-radius: 5px;
-            border-left: 3px solid #667eea;
-        }
-        
-        .trip-item strong {
-            color: #333;
-        }
-        
-        .fare-breakdown {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        
-        .fare-breakdown h4 {
-            color: #667eea;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        
-        .fare-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .fare-item:last-child {
-            border-bottom: none;
-            font-weight: bold;
-            font-size: 1.1em;
-            background: #667eea;
-            color: white;
-            padding: 15px;
-            margin: 10px -20px -20px -20px;
-            border-radius: 0 0 8px 8px;
-        }
-        
-        .fare-item.total {
-            background: #667eea;
-            color: white;
-            padding: 15px;
-            margin: 10px -20px -20px -20px;
-            border-radius: 0 0 8px 8px;
-        }
-        
-        .footer {
-            background: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            border-top: 1px solid #e9ecef;
-        }
-        
-        .footer p {
-            color: #666;
-            font-size: 0.9em;
-        }
-        
+
+        /* Specific styles for PDF rendering to ensure A4 compliance */
         @media print {
             body {
-                padding: 0;
-                margin: 0;
-                background: white;
-            }
-            .invoice-container {
-                box-shadow: none;
-                border: none;
-                margin: 0;
-                max-width: none;
-            }
-            .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                background-color: #fff !important;
                 -webkit-print-color-adjust: exact;
                 color-adjust: exact;
             }
-            button {
-                display: none !important;
-            }
-            .print-button {
-                display: none !important;
-            }
-            @page {
-                margin: 0.5in;
-                size: A4;
+            .invoice-container {
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                max-width: none !important;
+                margin: 0 !important;
             }
         }
-        
-        @media (max-width: 768px) {
-            .parties {
-                grid-template-columns: 1fr;
-            }
-            .invoice-info {
-                flex-direction: column;
-            }
-            .date-info {
-                text-align: left;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="invoice-container">
-        <div class="header">
+      </style>
+    </head>
+    <body>
+      <div class="invoice-container">
+        <header class="invoice-header">
+          <div class="company-logo">
+             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px; color: var(--brand-color);">
+               <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5A1.125 1.125 0 0 1 3.375 9h1.5a3.375 3.375 0 0 0 3.375-3.375V3.75" />
+             </svg>
+             <p style="margin-top: 8px; font-weight: 600; font-size: 1.125rem; color: var(--text-primary);">ReturnLorry</p>
+          </div>
+          <div class="invoice-title">
             <h1>INVOICE</h1>
-            <p>ReturnLorry - Your Trusted Logistics Partner</p>
-        </div>
+            <p>#${invoice.InvoiceNumber}</p>
+          </div>
+        </header>
+
+        <section class="invoice-details">
+          <div class="detail-group">
+            <h3>BILLED TO</h3>
+            <p class="name">${invoice.CustomerName}</p>
+            <p>${invoice.CustomerMobile}</p>
+            ${invoice.CustomerEmail ? `<p>${invoice.CustomerEmail}</p>` : ''}
+          </div>
+          <div class="detail-group">
+            <h3>DRIVER DETAILS</h3>
+            <p class="name">${invoice.DriverName}</p>
+            <p>${invoice.DriverMobile}</p>
+          </div>
+          <div class="detail-group">
+            <h3>DETAILS</h3>
+            <p><span class="label">Invoice Date:</span> ${currentDate}</p>
+            <p><span class="label">Booking ID:</span> ${invoice.BookingId || 'N/A'}</p>
+          </div>
+        </section>
+
+        <!-- TRIP INFORMATION - Refactored to prevent horizontal overlap -->
+        <section class="trip-details" style="padding: 24px 0;">
+              <h3 style="font-size: 0.75rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">TRIP INFORMATION</h3>
+              <p style="margin: 4px 0; font-size: 0.875rem;"><span style="font-weight: 500;">From:</span> ${invoice.PickUpLocation}</p>
+              <p style="margin: 4px 0; font-size: 0.875rem;"><span style="font-weight: 500;">To:</span> ${invoice.DropLocation}</p>
+              <!-- Distance and Vehicle moved to separate lines below the addresses -->
+              <p style="margin: 12px 0 4px; font-size: 0.875rem;"><span style="font-weight: 500;">Distance:</span> ${invoice.Distance} km</p>
+              <p style="margin: 4px 0; font-size: 0.875rem;"><span style="font-weight: 500;">Vehicle:</span> ${invoice.VehicleType}</p>
+        </section>
         
-        <div class="invoice-details">
-            <div class="invoice-info">
-                <div class="invoice-number">
-                    <h3>Invoice Number</h3>
-                    <p>${invoice.InvoiceNumber}</p>
+        <table class="fare-table">
+          <thead>
+            <tr>
+              <th>DESCRIPTION</th>
+              <th>AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Driver Fee</td>
+              <td>${formatRupees(invoice.DriverFee)}</td>
+            </tr>
+            <tr>
+              <td>Convenience Fee</td>
+              <td>${formatRupees(invoice.ConvenienceFee)}</td>
+            </tr>
+              <tr>
+              <td>GST</td>
+              <td>${formatRupees(invoice.GstAmount)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <section class="invoice-summary">
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span class="summary-label">Subtotal</span>
+                    <span class="summary-value">${formatRupees(invoice.DriverFee + invoice.ConvenienceFee)}</span>
                 </div>
-                <div class="date-info">
-                    <p><strong>Invoice Date:</strong> ${currentDate}</p>
-                    <p><strong>Booking ID:</strong> ${invoice.BookingId}</p>
-                    <p><strong>Payment Mode:</strong> ${invoice.PaymentMode}</p>
+              <div class="summary-row">
+                    <span class="summary-label">Taxes (GST)</span>
+                    <span class="summary-value">${formatRupees(invoice.GstAmount)}</span>
                 </div>
-            </div>
-            
-            <div class="parties">
-                <div class="party">
-                    <h4>Customer Details</h4>
-                    <p><strong>Name:</strong> ${invoice.CustomerName}</p>
-                    <p><strong>Mobile:</strong> ${invoice.CustomerMobile}</p>
-                    ${invoice.CustomerEmail ? `<p><strong>Email:</strong> ${invoice.CustomerEmail}</p>` : ''}
-                    <p><strong>Customer ID:</strong> ${invoice.CustomerId}</p>
-                </div>
-                
-                <div class="party">
-                    <h4>Driver Details</h4>
-                    <p><strong>Name:</strong> ${invoice.DriverName}</p>
-                    <p><strong>Mobile:</strong> ${invoice.DriverMobile}</p>
-                    <p><strong>Driver ID:</strong> ${invoice.DriverId}</p>
-                    ${invoice.OwnerName ? `<p><strong>Owner:</strong> ${invoice.OwnerName}</p>` : ''}
-                </div>
-            </div>
-            
-            <div class="trip-details">
-                <h4>Trip Information</h4>
-                <div class="trip-grid">
-                    <div class="trip-item">
-                        <span><strong>Pickup Location:</strong></span>
-                        <span>${invoice.PickUpLocation}</span>
-                    </div>
-                    <div class="trip-item">
-                        <span><strong>Drop Location:</strong></span>
-                        <span>${invoice.DropLocation}</span>
-                    </div>
-                    <div class="trip-item">
-                        <span><strong>Product:</strong></span>
-                        <span>${invoice.Product}</span>
-                    </div>
-                    <div class="trip-item">
-                        <span><strong>Distance:</strong></span>
-                        <span>${invoice.Distance} km</span>
-                    </div>
-                    ${invoice.Weight ? `
-                    <div class="trip-item">
-                        <span><strong>Weight:</strong></span>
-                        <span>${invoice.Weight}</span>
-                    </div>
-                    ` : ''}
-                    <div class="trip-item">
-                        <span><strong>Vehicle Type:</strong></span>
-                        <span>${invoice.VehicleType}</span>
-                    </div>
-                    ${invoice.VehicleModel ? `
-                    <div class="trip-item">
-                        <span><strong>Vehicle:</strong></span>
-                        <span>${invoice.VehicleModel}</span>
-                    </div>
-                    ` : ''}
-                    ${invoice.VehicleNumber ? `
-                    <div class="trip-item">
-                        <span><strong>Vehicle Number:</strong></span>
-                        <span>${invoice.VehicleNumber}</span>
-                    </div>
-                    ` : ''}
-                    <div class="trip-item">
-                        <span><strong>Trip Duration:</strong></span>
-                        <span>${invoice.TripDuration} minutes</span>
-                    </div>
+                <div class="summary-row grand-total">
+                    <span class="summary-label">Grand Total</span>
+                    <span class="summary-value">${formatRupees(invoice.GrandTotal)}</span>
                 </div>
             </div>
-            
-            <div class="fare-breakdown">
-                <h4>Fare Breakdown</h4>
-                <div class="fare-item">
-                    <span>Driver Fee</span>
-                    <span>₹${invoice.DriverFee.toFixed(2)}</span>
-                </div>
-                <div class="fare-item">
-                    <span>Convenience Fee (5%)</span>
-                    <span>₹${invoice.ConvenienceFee.toFixed(2)}</span>
-                </div>
-                <div class="fare-item">
-                    <span>GST (18%)</span>
-                    <span>₹${invoice.GstAmount.toFixed(2)}</span>
-                </div>
-                <div class="fare-item total">
-                    <span><strong>Total Amount</strong></span>
-                    <span><strong>₹${invoice.GrandTotal.toFixed(2)}</strong></span>
-                </div>
-            </div>
-            
-            <div class="footer">
-                <p>Thank you for choosing ReturnLorry!</p>
-                <p>For any queries, contact us at support@returnlorry.com</p>
-                <p>This is a computer-generated invoice.</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
+        </section>
+
+        <footer class="invoice-footer">
+          <p>Thank you for choosing ReturnLorry!</p>
+          <p>For questions, contact support@returnlorry.com</p>
+        </footer>
+      </div>
+    </body>
+    </html>
   `;
 };
