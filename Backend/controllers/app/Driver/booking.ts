@@ -5,7 +5,7 @@ import { acceptRideSchema, makeDriverOnlineSchema } from "../../../types/Driver/
 import { negotiateFareSchema } from "../../../types/Driver/types";
 import { getObjectSignedUrl, uploadFile,generateFileName } from "../../../utils/s3utils";
 import { haversineDistance } from "../../../utils/haversine";
-import { notifyDriverOfNegotiation, notifyCustomerOfAcceptedRide, notifyCustomerOfNegotiation } from "../../..";
+import { notifyDriverOfNegotiation, notifyCustomerOfAcceptedRide, notifyCustomerOfNegotiation, notifyDriverRideAccepted } from "../../..";
 import { notifyCustomerTripStarted, notifyCustomerTripCompleted } from "../../../index";
 const prisma = new PrismaClient();
 
@@ -426,6 +426,8 @@ return res.status(400).json(responseObj(false,null,"Please check the following f
     }
     // Notify the customer that their ride has been accepted
     notifyCustomerOfAcceptedRide(booking.UserId.toString(), booking.Id.toString());
+    // Notify the driver as well that ride acceptance is confirmed
+    notifyDriverRideAccepted(parsedBody.data?.DriverId.toString(), booking.Id.toString());
     res.status(200).json(responseObj(true,acceptedBooking,""));
 }
 

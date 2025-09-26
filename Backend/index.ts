@@ -196,6 +196,20 @@ export const notifyCustomerOfAcceptedRide = (customerId: string, bookingId: stri
   }
 };
 
+// Notify specific driver when ride is accepted (driver confirmation acknowledgement)
+export const notifyDriverRideAccepted = (driverId: string, bookingId: string) => {
+  const socketId = driverSocketMap.get(driverId);
+  if (socketId) {
+    io.to(socketId).emit("ride_accepted", {
+      bookingId: bookingId,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`Driver ${driverId} notified: ride accepted for booking ${bookingId}`);
+  } else {
+    console.log(`Driver ${driverId} is not connected to socket`);
+  }
+};
+
 // Notify specific customer when driver starts fare negotiation
 export const notifyCustomerOfNegotiation = (customerId: string, bookingId: string, negotiatedFare: string) => {
   const socketId = connectedCustomers.get(customerId);
