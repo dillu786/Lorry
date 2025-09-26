@@ -4,7 +4,7 @@ import { getObjectSignedUrl } from "../../../utils/s3utils";
 import { PaymentMode, Prisma, PrismaClient, VehicleType } from "@prisma/client"
 import { responseObj } from "../../../utils/response";
 import { acceptNegotiatedFareSchema, bookRideSchema } from "../../../types/Customer/types";
-import { notifyNearbyDrivers, notifyDriverOfNegotiation, notifyDriverOfAcceptedFare } from "../../..";
+import { notifyNearbyDrivers, notifyDriverOfNegotiation, notifyDriverOfAcceptedFare, notifyCustomerOfAcceptedRide } from "../../..";
 import type { RideRequest } from "../../../types/Common/types";
 import { declineBookingSchema } from "../../../types/Customer/types";
 import { GetObjectAclCommand } from "@aws-sdk/client-s3";
@@ -456,6 +456,12 @@ export const acceptNegotiatedFare = async (req:Request, res:Response): Promise<a
             parsedBody.data.DriverId.toString(), 
             parsedBody.data.BookingId.toString(), 
             parsedBody.data.Fare.toString()
+        );
+        
+        // Notify the customer that their ride has been accepted
+        notifyCustomerOfAcceptedRide(
+            user.Id.toString(),
+            parsedBody.data.BookingId.toString()
         );
         
         res.status(200).json(responseObj(true,null,"Fare accepted successfully"));
