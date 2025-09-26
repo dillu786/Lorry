@@ -1,4 +1,8 @@
 import type { Request, Response } from "express";
+// Using pdfkit to generate a real PDF stream for download
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const PDFDocument: any = require('pdfkit');
+import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 
@@ -663,6 +667,174 @@ export const generateInvoicePDFDirect = (invoiceData: any, res: Response) => {
   } catch (error: any) {
     console.error('Error generating direct PDF:', error);
     res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+};
+
+// Generate a real PDF and force download via Content-Disposition: attachment
+export const generateInvoicePDFAttachment = (invoiceData: any, res: Response, filename?: string) => {
+  try {
+    const doc = new PDFDocument({ size: 'A4', margin: 36 });
+
+    const safeFilename = (filename || `invoice-${invoiceData.InvoiceNumber || invoiceData.BookingId || 'download'}`).replace(/[^a-zA-Z0-9-_\.]/g, '_') + '.pdf';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    doc.pipe(res);
+
+    // Header
+    doc
+      .fontSize(22)
+      .fillColor('#333')
+      .text('INVOICE', { align: 'center' })
+      .moveDown(0.5);
+
+    doc
+      .fontSize(10)
+      .fillColor('#555')
+      .text('ReturnLorry - Your Trusted Logistics Partner', { align: 'center' })
+      .moveDown(1);
+
+    // Invoice Info
+    const invoiceNumber = invoiceData.InvoiceNumber || `INV-${Date.now()}`;
+    const bookingId = invoiceData.BookingId ?? '';
+    const invoiceDate = new Date().toLocaleDateString('en-IN');
+
+    doc
+      .fontSize(12)
+      .fillColor('#000')
+      .text(`Invoice Number: ${invoiceNumber}`)
+      .text(`Invoice Date: ${invoiceDate}`)
+      .text(`Booking ID: ${bookingId}`)
+      .moveDown(0.5);
+
+    // Parties
+    doc
+      .fontSize(14)
+      .fillColor('#333')
+      .text('Customer Details', { underline: true })
+      .fontSize(12)
+      .fillColor('#000')
+      .text(`Name: ${invoiceData.CustomerName || 'N/A'}`)
+      .text(`Mobile: ${invoiceData.CustomerMobile || 'N/A'}`)
+      .text(invoiceData.CustomerEmail ? `Email: ${invoiceData.CustomerEmail}` : '')
+      .moveDown(0.5);
+
+    doc
+      .fontSize(14)
+      .fillColor('#333')
+      .text('Driver Details', { underline: true })
+      .fontSize(12)
+      .fillColor('#000')
+      .text(`Name: ${invoiceData.DriverName || 'N/A'}`)
+      .text(`Mobile: ${invoiceData.DriverMobile || 'N/A'}`)
+      .moveDown(0.5);
+
+    // Trip Info
+    doc
+      .fontSize(14)
+      .fillColor('#333')
+      .text('Trip Information', { underline: true })
+      .fontSize(12)
+      .fillColor('#000')
+      .text(`Pickup: ${invoiceData.PickUpLocation || 'N/A'}`)
+      .text(`Drop: ${invoiceData.DropLocation || 'N/A'}`)
+      .text(`Product: ${invoiceData.Product || 'N/A'}`)
+      .text(`Distance: ${invoiceData.Distance || '0'} km`)
+      .text(`Vehicle Type: ${invoiceData.VehicleType || 'N/A'}`)
+      .text(`Duration: ${invoiceData.TripDuration || 0} minutes`)
+      .moveDown(0.5);
+
+    // Fare breakdown
+    const driverFee = Number(invoiceData.DriverFee || 0);
+    const convenienceFee = Number(invoiceData.ConvenienceFee || 0);
+    const gst = Number(invoiceData.GstAmount || 0);
+    const total = Number(invoiceData.GrandTotal || 0);
+
+    doc
+      .fontSize(14)
+      .fillColor('#333')
+      .text('Fare Breakdown', { underline: true })
+      .fontSize(12)
+      .fillColor('#000')
+      .text(`Driver Fee: ₹${driverFee.toFixed(2)}`)
+      .text(`Convenience Fee (5%): ₹${convenienceFee.toFixed(2)}`)
+      .text(`GST (18%): ₹${gst.toFixed(2)}`)
+      .moveDown(0.25)
+      .fontSize(13)
+      .fillColor('#111')
+      .text(`Total Amount: ₹${total.toFixed(2)}`)
+      .moveDown(1);
+
+    doc
+      .fontSize(10)
+      .fillColor('#666')
+      .text('Thank you for choosing ReturnLorry! For any queries, contact support@returnlorry.com', { align: 'center' });
+
+    doc.end();
+  } catch (error: any) {
+    console.error('Error generating PDF attachment:', error);
+    res.status(500).json({ error: 'Failed to generate PDF' });
+  }
+};
+
+// Render the rich styled HTML with Puppeteer and force download as a PDF attachment
+export const generateInvoicePuppeteerAttachment = async (
+  invoiceData: any,
+  res: Response,
+  filename?: string
+) => {
+  const safeFilename = (filename || `invoice-${invoiceData.InvoiceNumber || invoiceData.BookingId || 'download'}`).replace(/[^a-zA-Z0-9-_\.]/g, '_') + '.pdf';
+  let browser: any = null;
+  try {
+    const html = generateInvoiceHTML(invoiceData);
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+    const page = await browser.newPage();
+    
+    // Set viewport for consistent rendering
+    await page.setViewport({ width: 1200, height: 800 });
+    
+    // Set content and wait for fonts/styles to load
+    await page.setContent(html, { 
+      waitUntil: ['networkidle0', 'domcontentloaded'],
+      timeout: 30000 
+    });
+    
+    // Wait a bit more for any dynamic content
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' },
+      preferCSSPageSize: false,
+      displayHeaderFooter: false
+    });
+    
+    await page.close();
+
+    // Set proper headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length.toString());
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // Send the PDF buffer
+    res.end(pdfBuffer);
+  } catch (error: any) {
+    console.error('Error generating Puppeteer PDF:', error);
+    res.status(500).json({ error: 'Failed to generate PDF: ' + error.message });
+  } finally {
+    if (browser) {
+      try { await browser.close(); } catch {}
+    }
   }
 };
 

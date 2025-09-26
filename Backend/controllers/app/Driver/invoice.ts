@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { responseObj } from "../../../utils/response";
-import { generateInvoicePDF, generateInvoicePDFDirect } from "../../../utils/pdfGenerator";
+import { generateInvoicePDF, generateInvoicePDFDirect, generateInvoicePDFAttachment, generateInvoicePuppeteerAttachment } from "../../../utils/pdfGenerator";
 
 const prisma = new PrismaClient();
 
@@ -206,9 +206,9 @@ export const getDriverInvoices = async (req: Request, res: Response): Promise<an
 
     const totalCountResult = await prisma.$queryRaw`
       SELECT COUNT(*) as count FROM "Invoice" WHERE "DriverId" = ${driverId}
-    `;
+    ` as unknown as Array<{ count: number }>; 
     
-    const totalCount = Array.isArray(totalCountResult) ? totalCountResult[0].count : totalCountResult.count;
+    const totalCount = Array.isArray(totalCountResult) ? Number(totalCountResult[0]?.count || 0) : 0;
 
     return res.status(200).json(responseObj(true, {
       invoices,
@@ -244,9 +244,9 @@ export const getCustomerInvoices = async (req: Request, res: Response): Promise<
 
     const totalCountResult = await prisma.$queryRaw`
       SELECT COUNT(*) as count FROM "Invoice" WHERE "CustomerId" = ${customerId}
-    `;
+    ` as unknown as Array<{ count: number }>; 
     
-    const totalCount = Array.isArray(totalCountResult) ? totalCountResult[0].count : totalCountResult.count;
+    const totalCount = Array.isArray(totalCountResult) ? Number(totalCountResult[0]?.count || 0) : 0;
 
     return res.status(200).json(responseObj(true, {
       invoices,
@@ -342,8 +342,8 @@ export const autoDownloadInvoicePDF = async (req: Request, res: Response): Promi
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Use the direct PDF generation for automatic download
-    generateInvoicePDFDirect(invoice, res);
+    // Render styled HTML with Puppeteer for high-quality PDF and force download
+    await generateInvoicePuppeteerAttachment(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -479,8 +479,8 @@ export const publicAutoDownloadInvoicePDF = async (req: Request, res: Response):
       invoice = invoiceData;
     }
 
-    // Use the direct PDF generation for automatic download
-    generateInvoicePDFDirect(invoice, res);
+    // Render styled HTML with Puppeteer for high-quality PDF and force download
+    await generateInvoicePuppeteerAttachment(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -508,8 +508,8 @@ export const publicAutoDownloadInvoicePDFById = async (req: Request, res: Respon
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Use the direct PDF generation for automatic download
-    generateInvoicePDFDirect(invoice, res);
+    // Render styled HTML with Puppeteer for high-quality PDF and force download
+    await generateInvoicePuppeteerAttachment(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
