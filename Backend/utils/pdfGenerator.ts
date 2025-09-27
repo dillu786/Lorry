@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import puppeteer, { Browser } from "puppeteer";
+// @ts-ignore - PDFKit doesn't have proper TypeScript declarations
 import PDFDocument from "pdfkit";
 
 /**
@@ -101,12 +102,24 @@ export const generateInvoicePDFDirect = async (
   invoiceData: InvoiceData,
   res: Response
 ) => {
+  // Validate invoice data
+  if (!invoiceData || !invoiceData.InvoiceNumber || !invoiceData.CustomerName) {
+    return res.status(400).json({ error: "Invalid invoice data provided" });
+  }
+
   try {
     await generateInvoicePuppeteerAttachment(invoiceData, res);
   } catch (error) {
     // Note: In a real environment, you might inspect the error to decide if fallback is appropriate
     console.warn("Puppeteer PDF generation failed. Falling back to PDFKit.", error);
-    generateInvoicePDFAttachment(invoiceData, res);
+    try {
+      generateInvoicePDFAttachment(invoiceData, res);
+    } catch (fallbackError) {
+      console.error("Both PDF generation methods failed:", fallbackError);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to generate PDF with both methods" });
+      }
+    }
   }
 };
 
@@ -284,26 +297,51 @@ export const generateInvoicePuppeteerAttachment = async (
     // Assuming a standard setup for local testing or controlled environment.
     browser = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--font-render-hinting=none"],
+      args: [
+        "--no-sandbox", 
+        "--disable-setuid-sandbox", 
+        "--font-render-hinting=none",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-first-run",
+        "--disable-default-apps",
+        "--disable-extensions"
+      ],
     });
 
     const page = await browser.newPage();
-    // A standard A4 paper is roughly 8.27 x 11.69 inches.
-    await page.setViewport({ width: 794, height: 1122 });
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    
+    // Set viewport to match A4 dimensions (8.27 x 11.69 inches at 96 DPI)
+    await page.setViewport({ 
+      width: 794,  // A4 width in pixels at 96 DPI
+      height: 1123, // A4 height in pixels at 96 DPI
+      deviceScaleFactor: 1
+    });
+    
+    // Set content with proper wait conditions
+    await page.setContent(html, { 
+      waitUntil: ["networkidle0", "domcontentloaded"],
+      timeout: 30000
+    });
     
     // Ensure fonts are fully loaded
     await page.evaluateHandle("document.fonts.ready");
+    
+    // Wait a bit more for any dynamic content
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
+      preferCSSPageSize: false,
       margin: {
-        top: "0.4in",
-        right: "0.4in",
-        bottom: "0.4in",
-        left: "0.4in",
+        top: "0.3in",
+        right: "0.3in",
+        bottom: "0.3in",
+        left: "0.3in",
       },
+      displayHeaderFooter: false,
+      scale: 0.8,
     });
 
     setPDFHeaders(res, safeFilename, pdfBuffer.length);
@@ -328,249 +366,349 @@ const generateMobileOptimizedHTML = (invoice: InvoiceData): string => {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>Invoice ${invoice.InvoiceNumber}</title>
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-      <style>
-        :root {
-          --brand-color: #4f46e5;
-          --text-primary: #111827;
-          --text-secondary: #374151;
-          --text-light: #6b7280;
-          --border-color: #e5e7eb;
-          --background-light: #f9fafb;
-          --background-white: #ffffff;
-        }
-        body {
-          font-family: 'Inter', sans-serif;
-          margin: 0;
-          padding: 0;
-          background-color: var(--background-light);
-          color: var(--text-primary);
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-        }
-        .invoice-container {
-          max-width: 800px;
-          margin: 24px auto;
-          padding: 24px;
-          background-color: var(--background-white);
-          border-radius: 12px;
-          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-        /* Header */
-        .invoice-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          padding-bottom: 24px;
-          border-bottom: 1px solid var(--border-color);
-        }
-        .company-logo svg { height: 40px; }
-        .invoice-title { text-align: right; }
-        .invoice-title h1 {
-          font-size: 2.25rem;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin: 0;
-        }
-        .invoice-title p {
-          font-size: 0.875rem;
-          color: var(--text-light);
-          margin: 4px 0 0;
-        }
-        /* Details Section */
-        .invoice-details {
-          display: flex;
-          justify-content: space-between;
-          padding: 24px 0;
-        }
-        .detail-group { line-height: 1.6; }
-        .detail-group h3 {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--text-light);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin: 0 0 8px;
-        }
-        .detail-group p { margin: 0; font-size: 0.875rem; }
-        .detail-group .name { font-weight: 600; color: var(--text-primary); }
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice ${invoice.InvoiceNumber}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-        /* Fare Table */
-        .fare-table { width: 100%; border-collapse: collapse; }
-        .fare-table thead th {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--text-light);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          padding: 12px;
-          text-align: left;
-          border-bottom: 1px solid var(--border-color);
-        }
-        .fare-table tbody td {
-          padding: 12px;
-          font-size: 0.875rem;
-          border-bottom: 1px solid var(--border-color);
-        }
-        .fare-table th:last-child, .fare-table td:last-child { text-align: right; }
-        
-        /* Totals section */
-        .invoice-summary {
-          display: flex;
-          justify-content: flex-end;
-          margin-top: 24px;
-        }
-        /* INCREASED WIDTH from 40% to 50% for better alignment */
-        .summary-box { width: 50%; max-width: 300px; } 
-        .summary-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 8px 0;
-          font-size: 0.875rem;
-        }
-        .summary-row.grand-total {
-          font-size: 1.125rem;
-          font-weight: 700;
-          color: var(--brand-color);
-          border-top: 2px solid var(--border-color);
-          margin-top: 8px;
-          padding-top: 12px;
-        }
-        .summary-label { color: var(--text-secondary); }
-        .summary-value { font-weight: 500; }
+  <style>
+    :root {
+      --brand-color: #4f46e5;
+      --text-primary: #111827;
+      --text-secondary: #374151;
+      --text-light: #6b7280;
+      --border-color: #e5e7eb;
+      --background-light: #f9fafb;
+      --background-white: #ffffff;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--background-light);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .invoice-container {
+      max-width: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--background-white);
+      border-radius: 0;
+      box-shadow: none;
+      box-sizing: border-box;
+    }
 
-        /* Footer */
-        .invoice-footer {
-          text-align: center;
-          margin-top: 32px;
-          padding-top: 24px;
-          border-top: 1px solid var(--border-color);
-          font-size: 0.875rem;
-          color: var(--text-light);
-        }
-        @media (max-width: 640px) {
-          .invoice-container { padding: 16px; margin: 16px; }
-          .invoice-header, .invoice-details { flex-direction: column; gap: 20px; }
-          .invoice-title { text-align: left; }
-          .invoice-summary { justify-content: center; }
-          .summary-box { width: 100%; max-width: none; }
-        }
+    /* Header */
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .company-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .company-logo svg { height: 40px; width: 40px; color: var(--brand-color); }
+    .company-logo p {
+      margin-top: 6px;
+      font-weight: 600;
+      font-size: 1.125rem;
+      color: var(--text-primary);
+    }
+    .invoice-title { text-align: right; }
+    .invoice-title h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .invoice-title p {
+      font-size: 0.875rem;
+      color: var(--text-light);
+      margin: 4px 0 0;
+    }
 
-        /* Specific styles for PDF rendering to ensure A4 compliance */
-        @media print {
-            body {
-                background-color: #fff !important;
-                -webkit-print-color-adjust: exact;
-                color-adjust: exact;
-            }
-            .invoice-container {
-                box-shadow: none !important;
-                border-radius: 0 !important;
-                max-width: none !important;
-                margin: 0 !important;
-            }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="invoice-container">
-        <header class="invoice-header">
-          <div class="company-logo">
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px; color: var(--brand-color);">
-               <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5A1.125 1.125 0 0 1 3.375 9h1.5a3.375 3.375 0 0 0 3.375-3.375V3.75" />
-             </svg>
-             <p style="margin-top: 8px; font-weight: 600; font-size: 1.125rem; color: var(--text-primary);">ReturnLorry</p>
-          </div>
-          <div class="invoice-title">
-            <h1>INVOICE</h1>
-            <p>#${invoice.InvoiceNumber}</p>
-          </div>
-        </header>
+    /* Details */
+    .invoice-details {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 20px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .detail-group {
+      flex: 1;
+      min-width: 180px;
+      max-width: 250px;
+      line-height: 1.6;
+      box-sizing: border-box;
+    }
+    .detail-group h3 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 8px;
+    }
+    .detail-group p { margin: 2px 0; font-size: 0.9rem; }
+    .detail-group .name { font-weight: 600; color: var(--text-primary); }
 
-        <section class="invoice-details">
-          <div class="detail-group">
-            <h3>BILLED TO</h3>
-            <p class="name">${invoice.CustomerName}</p>
-            <p>${invoice.CustomerMobile}</p>
-            ${invoice.CustomerEmail ? `<p>${invoice.CustomerEmail}</p>` : ''}
-          </div>
-          <div class="detail-group">
-            <h3>DRIVER DETAILS</h3>
-            <p class="name">${invoice.DriverName}</p>
-            <p>${invoice.DriverMobile}</p>
-          </div>
-          <div class="detail-group">
-            <h3>DETAILS</h3>
-            <p><span class="label">Invoice Date:</span> ${currentDate}</p>
-            <p><span class="label">Booking ID:</span> ${invoice.BookingId || 'N/A'}</p>
-          </div>
-        </section>
+    /* Trip Info */
+    .trip-details {
+      margin-bottom: 20px;
+    }
+    .trip-details h3 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-light);
+      text-transform: uppercase;
+      margin: 0 0 8px;
+      letter-spacing: 0.05em;
+    }
+    .trip-details p { margin: 4px 0; font-size: 0.9rem; }
 
-        <!-- TRIP INFORMATION - Refactored to prevent horizontal overlap -->
-        <section class="trip-details" style="padding: 24px 0;">
-              <h3 style="font-size: 0.75rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">TRIP INFORMATION</h3>
-              <p style="margin: 4px 0; font-size: 0.875rem;"><span style="font-weight: 500;">From:</span> ${invoice.PickUpLocation}</p>
-              <p style="margin: 4px 0; font-size: 0.875rem;"><span style="font-weight: 500;">To:</span> ${invoice.DropLocation}</p>
-              <!-- Distance and Vehicle moved to separate lines below the addresses -->
-              <p style="margin: 12px 0 4px; font-size: 0.875rem;"><span style="font-weight: 500;">Distance:</span> ${invoice.Distance} km</p>
-              <p style="margin: 4px 0; font-size: 0.875rem;"><span style="font-weight: 500;">Vehicle:</span> ${invoice.VehicleType}</p>
-        </section>
-        
-        <table class="fare-table">
-          <thead>
-            <tr>
-              <th>DESCRIPTION</th>
-              <th>AMOUNT</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Driver Fee</td>
-              <td>${formatRupees(invoice.DriverFee)}</td>
-            </tr>
-            <tr>
-              <td>Convenience Fee</td>
-              <td>${formatRupees(invoice.ConvenienceFee)}</td>
-            </tr>
-              <tr>
-              <td>GST</td>
-              <td>${formatRupees(invoice.GstAmount)}</td>
-            </tr>
-          </tbody>
-        </table>
+    /* Fare Table */
+    .fare-table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-top: 10px;
+      table-layout: fixed;
+      box-sizing: border-box;
+    }
+    .fare-table thead th {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+      box-sizing: border-box;
+    }
+    .fare-table thead th:first-child { width: 70%; }
+    .fare-table thead th:last-child { width: 30%; }
+    .fare-table tbody td {
+      padding: 10px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border-color);
+      box-sizing: border-box;
+      word-wrap: break-word;
+    }
+    .fare-table th:last-child,
+    .fare-table td:last-child { text-align: right; }
 
-        <section class="invoice-summary">
-            <div class="summary-box">
-                <div class="summary-row">
-                    <span class="summary-label">Subtotal</span>
-                    <span class="summary-value">${formatRupees(invoice.DriverFee + invoice.ConvenienceFee)}</span>
-                </div>
-              <div class="summary-row">
-                    <span class="summary-label">Taxes (GST)</span>
-                    <span class="summary-value">${formatRupees(invoice.GstAmount)}</span>
-                </div>
-                <div class="summary-row grand-total">
-                    <span class="summary-label">Grand Total</span>
-                    <span class="summary-value">${formatRupees(invoice.GrandTotal)}</span>
-                </div>
-            </div>
-        </section>
+    /* Summary */
+    .invoice-summary {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .summary-box {
+      width: 300px;
+      max-width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--background-light);
+      box-sizing: border-box;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 0.9rem;
+    }
+    .summary-row.grand-total {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--brand-color);
+      border-top: 2px solid var(--border-color);
+      margin-top: 10px;
+      padding-top: 12px;
+    }
+    .summary-label { color: var(--text-secondary); }
+    .summary-value { font-weight: 500; }
 
-        <footer class="invoice-footer">
-          <p>Thank you for choosing ReturnLorry!</p>
-          <p>For questions, contact support@returnlorry.com</p>
-        </footer>
+    /* Footer */
+    .invoice-footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
+      font-size: 0.85rem;
+      color: var(--text-light);
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .invoice-container { padding: 20px; margin: 12px; }
+      .invoice-header, .invoice-details { flex-direction: column; gap: 16px; }
+      .invoice-title { text-align: left; }
+      .invoice-summary { justify-content: center; }
+      .summary-box { width: 100%; max-width: none; }
+    }
+
+    /* Print Friendly */
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        box-sizing: border-box !important;
+      }
+      body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        overflow-x: hidden !important;
+      }
+      .invoice-container {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 15px !important;
+        background: #fff !important;
+        overflow: hidden !important;
+      }
+      .invoice-header {
+        page-break-inside: avoid;
+        width: 100% !important;
+      }
+      .fare-table {
+        page-break-inside: avoid;
+        width: 100% !important;
+        table-layout: fixed !important;
+      }
+      .invoice-details {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+      }
+      .detail-group {
+        max-width: 200px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <!-- HEADER -->
+    <header class="invoice-header">
+      <div class="company-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" 
+             viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" 
+                d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 
+                   0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 
+                   4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 
+                   0h1.125c.621 0 1.125-.504 
+                   1.125-1.125V14.25m-17.25 
+                   4.5v-1.875a3.375 3.375 0 0 
+                   0-3.375-3.375h-1.5a1.125 
+                   1.125 0 0 1-1.125-1.125v-1.5A1.125 
+                   1.125 0 0 1 3.375 9h1.5a3.375 
+                   3.375 0 0 0 3.375-3.375V3.75"/>
+        </svg>
+        <p>ReturnLorry</p>
       </div>
-    </body>
-    </html>
+      <div class="invoice-title">
+        <h1>INVOICE</h1>
+        <p>#${invoice.InvoiceNumber}</p>
+      </div>
+    </header>
+
+    <!-- DETAILS -->
+    <section class="invoice-details">
+      <div class="detail-group">
+        <h3>Billed To</h3>
+        <p class="name">${invoice.CustomerName}</p>
+        <p>${invoice.CustomerMobile}</p>
+        ${invoice.CustomerEmail ? `<p>${invoice.CustomerEmail}</p>` : ''}
+      </div>
+      <div class="detail-group">
+        <h3>Driver Details</h3>
+        <p class="name">${invoice.DriverName}</p>
+        <p>${invoice.DriverMobile}</p>
+      </div>
+      <div class="detail-group">
+        <h3>Details</h3>
+        <p>Invoice Date: ${currentDate}</p>
+        <p>Booking ID: ${invoice.BookingId || 'N/A'}</p>
+      </div>
+    </section>
+
+    <!-- TRIP INFO -->
+    <section class="trip-details">
+      <h3>Trip Information</h3>
+      <p><strong>From:</strong> ${invoice.PickUpLocation}</p>
+      <p><strong>To:</strong> ${invoice.DropLocation}</p>
+      <p><strong>Distance:</strong> ${invoice.Distance} km</p>
+      <p><strong>Vehicle:</strong> ${invoice.VehicleType}</p>
+    </section>
+
+    <!-- FARE -->
+    <table class="fare-table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Driver Fee</td><td>${formatRupees(invoice.DriverFee)}</td></tr>
+        <tr><td>Convenience Fee</td><td>${formatRupees(invoice.ConvenienceFee)}</td></tr>
+        <tr><td>GST</td><td>${formatRupees(invoice.GstAmount)}</td></tr>
+      </tbody>
+    </table>
+
+    <!-- SUMMARY -->
+    <section class="invoice-summary">
+      <div class="summary-box">
+        <div class="summary-row">
+          <span class="summary-label">Subtotal</span>
+          <span class="summary-value">${formatRupees(invoice.DriverFee + invoice.ConvenienceFee)}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Taxes (GST)</span>
+          <span class="summary-value">${formatRupees(invoice.GstAmount)}</span>
+        </div>
+        <div class="summary-row grand-total">
+          <span class="summary-label">Grand Total</span>
+          <span class="summary-value">${formatRupees(invoice.GrandTotal)}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="invoice-footer">
+      <p>Thank you for choosing ReturnLorry!</p>
+      <p>For questions, contact <a href="mailto:support@returnlorry.com">support@returnlorry.com</a></p>
+    </footer>
+  </div>
+</body>
+</html>
+
   `;
 };

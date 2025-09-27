@@ -12,16 +12,22 @@ const generateInvoiceNumber = (): string => {
   return `INV-${timestamp}-${random}`;
 };
 
-// Calculate fare breakdown with convenience fee and GST
+/**
+ * Calculate fare breakdown with convenience fee and GST
+ * Formula: 5% Convenience Fee + 18% GST on Total Fare + Driver Fee = Total Fare
+ * 
+ * @param totalFare - The total fare amount as string
+ * @returns Object with fare breakdown
+ */
 const calculateFareBreakdown = (totalFare: string) => {
   // Step 1: Get the original fare amount
   const fareAmount = parseFloat(totalFare || '0');
 
-  // Step 2: Calculate convenience fee (5% of fare)
+  // Step 2: Calculate convenience fee (5% of total fare)
   const convenienceFee = parseFloat((fareAmount * 0.05).toFixed(2));
 
-  // Step 3: Calculate GST on convenience fee (18%)
-  const gstAmount = parseFloat((convenienceFee * 0.18).toFixed(2));
+  // Step 3: Calculate GST (18% of total fare)
+  const gstAmount = parseFloat((fareAmount * 0.18).toFixed(2));
 
   // Step 4: Calculate driver fee as remaining amount
   const driverFee = parseFloat((fareAmount - convenienceFee - gstAmount).toFixed(2));
@@ -29,7 +35,7 @@ const calculateFareBreakdown = (totalFare: string) => {
   // Step 5: Calculate grand total to ensure it's equal to fareAmount
   const grandTotal = (driverFee + convenienceFee + gstAmount).toFixed(2);
 
-  // Step 6 (Optional): For display, compute subTotal and rounding if needed
+  // Step 6: For display, compute subTotal and rounding if needed
   const subTotal = (driverFee + convenienceFee + gstAmount).toFixed(2);
   const rounding = (fareAmount - parseFloat(subTotal)).toFixed(2); // Should be '0.00' if logic is correct
   
@@ -284,8 +290,22 @@ export const downloadInvoicePDF = async (req: Request, res: Response): Promise<a
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Generate and send PDF
-    generateInvoicePDF(invoice, res);
+    // Recalculate fare breakdown with updated formula for existing invoices
+    const fareBreakdown = calculateFareBreakdown(invoice.FareAmount?.toString() || "0");
+    
+    // Create updated invoice data with new calculation
+    const updatedInvoice = {
+      ...invoice,
+      DriverFee: fareBreakdown.driverFee,
+      ConvenienceFee: fareBreakdown.convenienceFee,
+      GstAmount: fareBreakdown.gstAmount,
+      GrandTotal: fareBreakdown.grandTotal,
+      SubTotal: fareBreakdown.subTotal,
+      Rounding: fareBreakdown.rounding
+    };
+
+    // Generate and send PDF using improved method
+    generateInvoicePDFDirect(updatedInvoice, res);
   } catch (error: any) {
     console.error("Error downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -313,8 +333,22 @@ export const downloadInvoicePDFById = async (req: Request, res: Response): Promi
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Generate and send PDF
-    generateInvoicePDF(invoice, res);
+    // Recalculate fare breakdown with updated formula for existing invoices
+    const fareBreakdown = calculateFareBreakdown(invoice.FareAmount?.toString() || "0");
+    
+    // Create updated invoice data with new calculation
+    const updatedInvoice = {
+      ...invoice,
+      DriverFee: fareBreakdown.driverFee,
+      ConvenienceFee: fareBreakdown.convenienceFee,
+      GstAmount: fareBreakdown.gstAmount,
+      GrandTotal: fareBreakdown.grandTotal,
+      SubTotal: fareBreakdown.subTotal,
+      Rounding: fareBreakdown.rounding
+    };
+
+    // Generate and send PDF using improved method
+    generateInvoicePDFDirect(updatedInvoice, res);
   } catch (error: any) {
     console.error("Error downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -342,8 +376,8 @@ export const autoDownloadInvoicePDF = async (req: Request, res: Response): Promi
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Use PDFKit for reliable PDF generation
-    generateInvoicePDFAttachment(invoice, res);
+    // Use the improved PDF generation with Puppeteer and fallback
+    generateInvoicePDFDirect(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -388,99 +422,90 @@ export const publicAutoDownloadInvoicePDF = async (req: Request, res: Response):
       return res.status(400).json(responseObj(false, null, "Booking ID is required"));
     }
 
-    // First, try to get existing invoice
-    const existingInvoices = await prisma.$queryRaw`
-      SELECT * FROM "Invoice" 
-      WHERE "BookingId" = ${parseInt(bookingId)}
-    `;
-
-    let invoice = Array.isArray(existingInvoices) ? existingInvoices[0] : existingInvoices;
-
-    // If no existing invoice, check if booking exists and is completed
-    if (!invoice) {
-      // Get booking with all related data
-      const booking = await prisma.bookings.findUnique({
-        where: { Id: parseInt(bookingId) },
-        include: {
-          User: {
-            select: {
-              Id: true,
-              Name: true,
-              MobileNumber: true,
-              Email: true
-            }
-          },
-          Driver: {
-            select: {
-              Id: true,
-              Name: true,
-              MobileNumber: true
-            }
-          },
-          Vehicle: {
-            select: {
-              Id: true,
-              Model: true,
-              VehicleNumber: true
-            }
+    // Always generate fresh invoice data with updated calculation
+    // Get booking with all related data
+    const booking = await prisma.bookings.findUnique({
+      where: { Id: parseInt(bookingId) },
+      include: {
+        User: {
+          select: {
+            Id: true,
+            Name: true,
+            MobileNumber: true,
+            Email: true
+          }
+        },
+        Driver: {
+          select: {
+            Id: true,
+            Name: true,
+            MobileNumber: true
+          }
+        },
+        Vehicle: {
+          select: {
+            Id: true,
+            Model: true,
+            VehicleNumber: true
           }
         }
-      });
-
-      if (!booking) {
-        return res.status(404).json(responseObj(false, null, "Booking not found"));
       }
+    });
 
-      // Check if booking is completed
-      if (booking.Status !== "Completed") {
-        return res.status(400).json(responseObj(false, null, `Invoice can only be generated for completed trips. Current status: ${booking.Status}`));
-      }
-
-      // Generate invoice data on-the-fly from booking data
-      const invoiceData = {
-        Id: `temp-${bookingId}`,
-        InvoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        BookingId: booking.Id,
-        CustomerId: booking.User.Id,
-        CustomerName: booking.User.Name,
-        CustomerMobile: booking.User.MobileNumber,
-        CustomerEmail: booking.User.Email,
-        DriverId: booking.DriverId,
-        DriverName: booking.Driver?.Name || "Unknown Driver",
-        DriverMobile: booking.Driver?.MobileNumber || "",
-        OwnerId: null,
-        OwnerName: null,
-        VehicleId: booking.VehicleId,
-        VehicleModel: booking.Vehicle?.Model || null,
-        VehicleNumber: booking.Vehicle?.VehicleNumber || null,
-        PickUpLocation: booking.PickUpLocation,
-        DropLocation: booking.DropLocation,
-        Product: booking.Product || "General Cargo",
-        Distance: booking.Distance || "0",
-        Weight: booking.Weight || null,
-        VehicleType: booking.VehicleType,
-        FareAmount: parseFloat(booking.Fare) || 0,
-        DriverFee: parseFloat(booking.Fare) * 0.85 || 0, // 85% to driver
-        ConvenienceFee: parseFloat(booking.Fare) * 0.05 || 0, // 5% convenience fee
-        GstAmount: (parseFloat(booking.Fare) * 0.05 * 0.18) || 0, // 18% GST on convenience fee
-        GrandTotal: parseFloat(booking.Fare) || 0,
-        SubTotal: parseFloat(booking.Fare) * 0.95 || 0,
-        Rounding: 0,
-        PaymentMode: booking.PaymentMode,
-        BookingTime: booking.BookingTime,
-        StartTime: booking.StartTime,
-        EndTime: booking.EndTime || new Date(),
-        InvoiceDate: new Date(),
-        TripDuration: booking.EndTime && booking.StartTime ? 
-          Math.round((new Date(booking.EndTime).getTime() - new Date(booking.StartTime).getTime()) / (1000 * 60)) : 0,
-        Notes: `Generated on-the-fly for completed trip`
-      };
-
-      invoice = invoiceData;
+    if (!booking) {
+      return res.status(404).json(responseObj(false, null, "Booking not found"));
     }
 
-    // Use PDFKit for reliable PDF generation
-    generateInvoicePDFAttachment(invoice, res);
+    // Check if booking is completed
+    if (booking.Status !== "Completed") {
+      return res.status(400).json(responseObj(false, null, `Invoice can only be generated for completed trips. Current status: ${booking.Status}`));
+    }
+
+    // Calculate proper fare breakdown using the correct function
+    const fareBreakdown = calculateFareBreakdown(booking.Fare);
+
+    // Generate invoice data on-the-fly from booking data with updated calculation
+    const invoice = {
+      Id: `temp-${bookingId}`,
+      InvoiceNumber: `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      BookingId: booking.Id,
+      CustomerId: booking.User.Id,
+      CustomerName: booking.User.Name,
+      CustomerMobile: booking.User.MobileNumber,
+      CustomerEmail: booking.User.Email,
+      DriverId: booking.DriverId,
+      DriverName: booking.Driver?.Name || "Unknown Driver",
+      DriverMobile: booking.Driver?.MobileNumber || "",
+      OwnerId: null,
+      OwnerName: null,
+      VehicleId: booking.VehicleId,
+      VehicleModel: booking.Vehicle?.Model || null,
+      VehicleNumber: booking.Vehicle?.VehicleNumber || null,
+      PickUpLocation: booking.PickUpLocation,
+      DropLocation: booking.DropLocation,
+      Product: booking.Product || "General Cargo",
+      Distance: booking.Distance || "0",
+      Weight: booking.Weight || null,
+      VehicleType: booking.VehicleType,
+      FareAmount: fareBreakdown.fareAmount,
+      DriverFee: fareBreakdown.driverFee,
+      ConvenienceFee: fareBreakdown.convenienceFee,
+      GstAmount: fareBreakdown.gstAmount,
+      GrandTotal: fareBreakdown.grandTotal,
+      SubTotal: fareBreakdown.subTotal,
+      Rounding: fareBreakdown.rounding,
+      PaymentMode: booking.PaymentMode,
+      BookingTime: booking.BookingTime,
+      StartTime: booking.StartTime,
+      EndTime: booking.EndTime || new Date(),
+      InvoiceDate: new Date(),
+      TripDuration: booking.EndTime && booking.StartTime ? 
+        Math.round((new Date(booking.EndTime).getTime() - new Date(booking.StartTime).getTime()) / (1000 * 60)) : 0,
+      Notes: `Generated with updated calculation formula`
+    };
+
+    // Use the improved PDF generation with Puppeteer and fallback
+    generateInvoicePDFDirect(invoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
@@ -496,20 +521,35 @@ export const publicAutoDownloadInvoicePDFById = async (req: Request, res: Respon
       return res.status(400).json(responseObj(false, null, "Invoice ID is required"));
     }
 
-    // Use raw SQL query to get invoice data
+    // Get invoice data and recalculate with updated formula
     const invoices = await prisma.$queryRaw`
       SELECT * FROM "Invoice" 
       WHERE "Id" = ${parseInt(invoiceId)}
     `;
 
-    const invoice = Array.isArray(invoices) ? invoices[0] : invoices;
+    const existingInvoice = Array.isArray(invoices) ? invoices[0] : invoices;
 
-    if (!invoice) {
+    if (!existingInvoice) {
       return res.status(404).json(responseObj(false, null, "Invoice not found"));
     }
 
-    // Use PDFKit for reliable PDF generation
-    generateInvoicePDFAttachment(invoice, res);
+    // Recalculate fare breakdown with updated formula
+    const fareBreakdown = calculateFareBreakdown(existingInvoice.FareAmount?.toString() || "0");
+
+    // Create updated invoice data with new calculation
+    const updatedInvoice = {
+      ...existingInvoice,
+      DriverFee: fareBreakdown.driverFee,
+      ConvenienceFee: fareBreakdown.convenienceFee,
+      GstAmount: fareBreakdown.gstAmount,
+      GrandTotal: fareBreakdown.grandTotal,
+      SubTotal: fareBreakdown.subTotal,
+      Rounding: fareBreakdown.rounding,
+      Notes: `Recalculated with updated formula: ${existingInvoice.Notes || ''}`
+    };
+
+    // Use the improved PDF generation with Puppeteer and fallback
+    generateInvoicePDFDirect(updatedInvoice, res);
   } catch (error: any) {
     console.error("Error auto downloading invoice PDF:", error);
     return res.status(500).json(responseObj(false, null, "Something went wrong: " + error.message));
